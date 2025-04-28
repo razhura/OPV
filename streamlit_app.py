@@ -5,7 +5,7 @@ from utils import combine_duplicate_columns
 import re
 
 st.set_page_config(page_title="Excel QCA Parser", layout="wide")
-st.title("📊 OPV KONIMEX")
+st.title("📊 OPV KONIMEX V1")
 
 # Fungsi parsing header bertingkat dari baris 4-6
 def extract_multi_level_headers(excel_file, start_row=4, num_levels=3):
