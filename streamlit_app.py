@@ -7,7 +7,7 @@ from header_parser import extract_multi_level_headers
 from openpyxl import load_workbook
 
 st.set_page_config(page_title="Excel QCA Parser", layout="wide")
-st.title("📊 OPV KONIMEX")
+st.title("📊 OPV KONIMEX V2")
 
 def is_possible_decimal(value):
     if isinstance(value, str) and re.match(r'^\d+\.\d+$', value.strip()):
