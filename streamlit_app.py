@@ -149,3 +149,29 @@ if uploaded_file is not None:
         st.info("Silakan pilih minimal satu kolom untuk ditampilkan.")
 else:
     st.warning("⚠️ SILAKAN UPLOAD FILE TERLEBIH DAHULU.")
+
+
+    # FITUR BARU: Tampilkan Semua Data Berdasarkan Batch
+    st.subheader("🔎 Tampilkan Data Berdasarkan Batch")
+
+    # Cari kolom yang namanya mengandung 'Batch'
+    batch_col_candidates = [col for col in df.columns if 'batch' in col.lower()]
+
+    if batch_col_candidates:
+        batch_col = batch_col_candidates[0]  # ambil yang pertama cocok
+        unique_batches = df[batch_col].dropna().unique().tolist()
+        selected_batch = st.selectbox("Pilih nilai Batch:", unique_batches)
+
+        if selected_batch:
+            # Filter baris berdasarkan batch
+            df_batch_filtered = df[df[batch_col] == selected_batch]
+
+            # Ambil semua kolom dari posisi kolom 'Batch' dan ke kanan
+            batch_idx = df.columns.get_loc(batch_col)
+            df_right_of_batch = df_batch_filtered.iloc[:, batch_idx:]
+
+            st.subheader(f"📄 Data untuk Batch: {selected_batch}")
+            st.dataframe(df_right_of_batch)
+    else:
+        st.info("Kolom 'Batch' tidak ditemukan.")
+
