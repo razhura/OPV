@@ -8,9 +8,10 @@ from header_parser import extract_multi_level_headers
 from openpyxl import load_workbook
 
 
+st.title("📊 OPV KONIMEX V2.1")
+
 st.set_page_config(page_title="Excel QCA Parser", layout="wide")
 render_navbar()
-st.title("📊 OPV KONIMEX V2.1")
 
 # Fungsi parsing header bertingkat dari baris 4-6
 def extract_multi_level_headers(excel_file, start_row=4, num_levels=3):
