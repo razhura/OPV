@@ -14,8 +14,6 @@ def render_navbar():
         position: relative;
         font-size: 18px;
         font-weight: bold;
-        color: white;
-        background-color: #4A6C6F;
         padding: 0.5rem 1rem;
         border-radius: 10px;
         cursor: pointer;
@@ -23,18 +21,23 @@ def render_navbar():
         width: 60px;
         text-align: center;
         text-decoration: none;
+        overflow: hidden;
+        white-space: nowrap;
     }
 
-    .nav-item:hover {
-        width: 280px;
-        background-color: #3C5C5F;
+    .nav-item span.short-text {
+        transition: opacity 0.3s ease-in-out;
+    }
+
+    .nav-item:hover span.short-text {
+        opacity: 0;
     }
 
     .nav-item span.full-text {
         opacity: 0;
         transition: opacity 0.3s ease-in-out;
         position: absolute;
-        left: 70px;
+        left: 10px;
         top: 50%;
         transform: translateY(-50%);
         white-space: nowrap;
@@ -49,16 +52,41 @@ def render_navbar():
         justify-content: flex-start;
         margin-top: 1rem;
     }
+
+    /* Default warna tulisan */
+    .nav-item {
+        color: white;
+        background-color: #4A6C6F;
+    }
+
+    .nav-item:hover {
+        width: 280px;
+        background-color: #3C5C5F;
+    }
+
+    /* Deteksi mode terang */
+    @media (prefers-color-scheme: light) {
+        .nav-item {
+            color: white !important;
+        }
+    }
+
+    /* Deteksi mode gelap */
+    @media (prefers-color-scheme: dark) {
+        .nav-item {
+            color: white !important;
+        }
+    }
     </style>
 
     <div class="nav-container">
         <div class="navbar">
             <a href="/?page=QCA" class="nav-item">
-                QCA
+                <span class="short-text">QCA</span>
                 <span class="full-text">Critical Quality Attribute</span>
             </a>
             <a href="/?page=IPC" class="nav-item">
-                IPC
+                <span class="short-text">IPC</span>
                 <span class="full-text">In Process Control</span>
             </a>
         </div>
