@@ -5,8 +5,11 @@ import re
 from utils import combine_duplicate_columns
 from header_parser import extract_multi_level_headers
 from openpyxl import load_workbook
+from navbar import render_navbar
+
 
 st.set_page_config(page_title="Excel QCA Parser", layout="wide")
+render_navbar()
 st.title("📊 OPV KONIMEX V2.1")
 
 # Fungsi parsing header bertingkat dari baris 4-6
@@ -48,6 +51,15 @@ def extract_multi_level_headers(excel_file, start_row=4, num_levels=3):
 
 
 
+query_params = st.experimental_get_query_params()
+page = query_params.get("page", ["QCA"])[0]
+
+if page == "IPC":
+    st.title("⚙️ In Process Control (IPC)")
+    st.info("Halaman IPC masih dalam pengembangan.")
+    st.stop()
+else:
+    st.title("📊 Critical Quality Attribute (QCA)")
 
 # Upload file Excel
 uploaded_file = st.file_uploader("Upload file Excel (.xlsx)", type=["xlsx", "ods"])
