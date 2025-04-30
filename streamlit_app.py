@@ -51,8 +51,9 @@ def extract_multi_level_headers(excel_file, start_row=4, num_levels=3):
 
 
 
-query_params = st.experimental_get_query_params()
+query_params = st.query_params
 page = query_params.get("page", ["QCA"])[0]
+
 
 if page == "IPC":
     st.title("⚙️ In Process Control (IPC)")
