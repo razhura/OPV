@@ -2,10 +2,10 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import re
+from navbar import render_navbar
 from utils import combine_duplicate_columns
 from header_parser import extract_multi_level_headers
 from openpyxl import load_workbook
-from navbar import render_navbar
 
 
 st.set_page_config(page_title="Excel QCA Parser", layout="wide")
