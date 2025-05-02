@@ -2,4 +2,6 @@ streamlit
 pandas
 openpyxl
 matplotlib
-
+io
+base64
+re
