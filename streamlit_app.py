@@ -207,7 +207,11 @@ if uploaded_file is not None:
             unique_batches = df[batch_column].dropna().unique()
             
             # Memungkinkan pemilihan multiple batch
-            selected_batches = st.multiselect("Pilih Nilai Batch:", unique_batches)
+            select_all = st.checkbox("Pilih semua batch")
+            if select_all:
+                selected_batches = st.multiselect("Pilih Nilai Batch:", unique_batches, default=list(unique_batches))
+            else:
+                selected_batches = st.multiselect("Pilih Nilai Batch:", unique_batches)
 
             if selected_batches:
                 # Filter data berdasarkan batch yang dipilih
