@@ -216,14 +216,73 @@ if uploaded_file is not None:
 
                     st.subheader(f"📄 Data dari Batch yang Dipilih dan Kolom Ke Kanan:")
                     st.dataframe(batch_rows[selected_columns_right])
+# === Tambahan: Chart dari kolom numerik ===
+                    st.subheader("📊 Visualisasi Data (Chart)")
+                    numeric_cols = batch_rows[selected_columns_right].select_dtypes(include='number').columns.tolist()
+
+                    if numeric_cols:
+                        chart_cols = st.multiselect("Pilih kolom numerik untuk chart:", numeric_cols)
+                        if chart_cols:
+                            if len(chart_cols) == 1:
+                                selected_col = chart_cols[0]
+                                values = batch_rows[selected_columns_right][selected_col].dropna().values
+
+                                if len(values) >= 2:
+                                    x_bar = np.mean(values)
+                                    moving_ranges = np.abs(np.diff(values))
+                                    mr_bar = np.mean(moving_ranges)
+                                    UCL_I = x_bar + 2.66 * mr_bar
+                                    LCL_I = x_bar - 2.66 * mr_bar
+                                    UCL_MR = 3.267 * mr_bar
+                                    LCL_MR = 0
+
+                                    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+                                    ax1.plot(values, marker='o', color='orange')
+                                    ax1.axhline(x_bar, color='green', linestyle='-', label='X̄')
+                                    ax1.axhline(UCL_I, color='red', linestyle='-', label='UCL')
+                                    ax1.axhline(LCL_I, color='red', linestyle='-')
+                                    ax1.set_title(f"I-MR Chart: {selected_col} (Batch {', '.join(map(str, selected_batches))})")
+                                    ax1.set_ylabel("Individual Value")
+
+                                    USL = st.number_input("Masukkan USL (opsional):", value=1.0)
+                                    if USL:
+                                        ax1.axhline(USL, color='brown', linestyle='--', label='USL')
+
+                                    ax1.legend(loc='upper right')
+
+                                    ax2.plot(moving_ranges, marker='o', color='orange')
+                                    ax2.axhline(mr_bar, color='green', linestyle='-', label='MR̄')
+                                    ax2.axhline(UCL_MR, color='red', linestyle='-', label='UCL')
+                                    ax2.axhline(LCL_MR, color='black', linestyle='--', label='LCL')
+                                    ax2.set_ylabel("Moving Range")
+                                    ax2.set_xlabel("Observation")
+                                    ax2.legend(loc='upper right')
+
+                                    st.pyplot(fig)
+
+                                    buf = io.BytesIO()
+                                    fig.savefig(buf, format="png")
+                                    buf.seek(0)
+                                    b64 = base64.b64encode(buf.read()).decode()
+                                    href = f'<a href="data:image/png;base64,{b64}" download="imr_chart.png">📥 Download I-MR Chart sebagai PNG</a>'
+                                    st.markdown(href, unsafe_allow_html=True)
+                                else:
+                                    st.warning("Minimal 2 data diperlukan untuk membuat I-MR Chart.")
+                            else:
+                                st.warning("Pilih hanya 1 kolom numerik untuk I-MR Chart.")
+                        else:
+                            st.info("Silakan pilih minimal satu kolom numerik.")
+                    else:
+                        st.info("Tidak ada kolom numerik pada data yang dipilih.")
                 else:
                     st.warning("Batch yang dipilih tidak ditemukan di data.")
             else:
                 st.info("Silakan pilih minimal satu batch untuk ditampilkan.")
         else:
-            st.warning(f"Kolom '{batch_column}' tidak ditemukan di data. Pastikan kolom batch ada dalam file Excel.")
+            st.warning(f"Kolom '{batch_column}' tidak ditemukan di data.")
+
     elif feature_choice is None:
         st.info("Silakan pilih fitur yang ingin digunakan di atas.")
-
 else:
     st.warning("⚠️ SILAKAN UPLOAD FILE TERLEBIH DAHULU.")
+
