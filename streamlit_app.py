@@ -2,13 +2,13 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import re
+import io
+import base64
+import matplotlib.pyplot as plt
 from navbar import render_navbar
 from utils import combine_duplicate_columns
 from header_parser import extract_multi_level_headers
 from openpyxl import load_workbook
-import matplotlib.pyplot as plt
-import io
-import base64
 
 st.set_page_config(page_title="Excel QCA Parser", layout="wide")
 render_navbar()
@@ -52,6 +52,16 @@ def extract_multi_level_headers(excel_file, start_row=4, num_levels=3):
 
     return headers
 
+
+# Fungsi untuk mengeksport DataFrame ke Excel
+def export_dataframe(df, filename="data_export"):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False)
+    output.seek(0)
+    b64 = base64.b64encode(output.read()).decode()
+    href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}.xlsx">📥 Download Excel File</a>'
+    return href
 
 
 query_params = st.query_params
@@ -144,16 +154,21 @@ if uploaded_file is not None:
     cols_to_check = [col for col in df.columns if col != "Nomor Batch"]
     df = df.dropna(subset=cols_to_check, how="all")
 
-
     # Fungsi bantu: deteksi string desimal (misal '1.19')
     def is_possible_decimal(value):
         if isinstance(value, str) and re.match(r'^\d+\.\d+$', value.strip()):
             return True
         return False
 
+
+
     # --- Tampilkan Data Awal ---
     st.subheader("📄 Data Akhir (Setelah Parsing dan Gabung Kolom):")
     st.dataframe(df)
+    
+    # Tambahkan tombol ekspor untuk data utama
+    export_link = export_dataframe(df, "data_lengkap")
+    st.markdown(export_link, unsafe_allow_html=True)
 
     # --- Tombol untuk memilih fitur ---
     st.subheader("🔍 Pilih Fitur yang Ingin Digunakan")
@@ -168,19 +183,40 @@ if uploaded_file is not None:
     
     # === FITUR: PILIH KOLOM ===
     if feature_choice == "Pilih Kolom":
-        st.subheader("🔍 Pilih Kolom yang Ingin Ditampilkan")
+        st.subheader("🔍 Pilih Kolom dan Pembersihan Data")
         
-        # Jika "Nomor Batch" ada dalam kolom, jadikan default pilihan pertama
-        default_columns = []
-        if "Nomor Batch" in df.columns:
-            default_columns = ["Nomor Batch"]
+        col1, col2 = st.columns([3, 1])
         
-        selected_columns = st.multiselect("Pilih kolom:", df.columns, default=default_columns)
+        with col1:
+            # Jika "Nomor Batch" ada dalam kolom, jadikan default pilihan pertama
+            default_columns = []
+            if "Nomor Batch" in df.columns:
+                default_columns = ["Nomor Batch"]
+            
+            selected_columns = st.multiselect("Pilih kolom untuk ditampilkan:", df.columns, default=default_columns)
+        
+        with col2:
+            # Tambahkan checkbox untuk fitur hapus data kosong
+            enable_drop_empty = st.checkbox("🧹 Hapus data kosong", value=False)
+        
+        # Tampilkan opsi untuk hapus data kosong jika diaktifkan
 
+        # Tampilkan data dari kolom yang dipilih
         if selected_columns:
             df_filtered = df[selected_columns]
-            st.subheader("📄 Data dari Kolom yang Dipilih:")
+            if enable_drop_empty:
+                rows_before = len(df_filtered)
+                df_filtered = df_filtered.dropna(subset=selected_columns)
+                rows_removed = rows_before - len(df_filtered)
+                st.success(f"✅ {rows_removed} baris dengan data kosong telah dihapus dari total {rows_before} baris.")
+
+            
+            st.subheader("📄 Data Hasil Pemilihan Kolom" + (" dan Pembersihan Data" if enable_drop_empty else ""))
             st.dataframe(df_filtered)
+            
+            # Tambahkan tombol ekspor untuk data kolom yang dipilih
+            export_link = export_dataframe(df_filtered, "data_hasil_filter")
+            st.markdown(export_link, unsafe_allow_html=True)
 
             # Statistik numerik
             st.subheader("📊 Statistik Ringkasan (Numerik)")
@@ -190,6 +226,10 @@ if uploaded_file is not None:
                 stats = df_filtered[numeric_cols].agg(['min', 'max', 'mean']).T
                 stats.columns = ['Min', 'Max', 'Mean']
                 st.dataframe(stats)
+                
+                # Tambahkan tombol ekspor untuk statistik
+                export_link = export_dataframe(stats, "statistik_data")
+                st.markdown(export_link, unsafe_allow_html=True)
             else:
                 st.info("Tidak ada kolom numerik dalam data yang difilter.")
         else:
@@ -223,7 +263,13 @@ if uploaded_file is not None:
 
                     st.subheader(f"📄 Data dari Batch yang Dipilih dan Kolom Ke Kanan:")
                     st.dataframe(batch_rows[selected_columns_right])
-# === Tambahan: Chart dari kolom numerik ===
+                    
+                    # Tambahkan tombol ekspor untuk data batch
+                    batch_names = "_".join(map(str, selected_batches))
+                    export_link = export_dataframe(batch_rows[selected_columns_right], f"data_batch_{batch_names}")
+                    st.markdown(export_link, unsafe_allow_html=True)
+                    
+                    # === Tambahan: Chart dari kolom numerik ===
                     st.subheader("📊 Visualisasi Data (Chart)")
                     numeric_cols = batch_rows[selected_columns_right].select_dtypes(include='number').columns.tolist()
 
@@ -292,4 +338,3 @@ if uploaded_file is not None:
         st.info("Silakan pilih fitur yang ingin digunakan di atas.")
 else:
     st.warning("⚠️ SILAKAN UPLOAD FILE TERLEBIH DAHULU.")
-
