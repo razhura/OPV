@@ -23,10 +23,6 @@ def extract_multi_level_headers(excel_file, start_row=4, num_levels=3):
     headers = []
     max_col = ws.max_column
 
-    def simplify_main_header(header_text):
-        if "-" in header_text:
-            return header_text.split("-")[0].strip()
-        return header_text.strip()
 
     for col in range(1, max_col + 1):
         levels = []
