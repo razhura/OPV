@@ -12,7 +12,7 @@ from openpyxl import load_workbook
 
 st.set_page_config(page_title="Excel QCA Parser", layout="wide")
 render_navbar()
-st.title("📊 OPV KONIMEX V2.1")
+st.title("📊 OPV KONIMEX V2.2")
 
 
 # Fungsi parsing header bertingkat dari baris 4-6
