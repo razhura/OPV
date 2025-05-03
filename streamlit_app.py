@@ -47,7 +47,7 @@ def extract_multi_level_headers(excel_file, start_row=4, num_levels=3):
             headers.append(levels[0])    
         else:
             # Header utama disingkat
-            simplified_main = simplify_main_header(levels[0])
+            simplified_main = levels[0]
             combined = " > ".join([simplified_main] + levels[1:])
             headers.append(combined)
 
