@@ -24,6 +24,10 @@ def extract_multi_level_headers(excel_file, start_row=4, num_levels=3):
     max_col = ws.max_column
 
     
+    def simplify_main_header(header_text):
+        if "-" in header_text:
+            return header_text.split("-")[0].strip()
+        return header_text.strip()
 
     for col in range(1, max_col + 1):
         levels = []
@@ -40,7 +44,14 @@ def extract_multi_level_headers(excel_file, start_row=4, num_levels=3):
 
         # Kolom A, B, C khusus ambil 1 level pertama
         if col <= 3:
-            headers.append(levels[0])
+            headers.append(levels[0])    
+        else:
+            # Header utama disingkat
+            simplified_main = simplify_main_header(levels[0])
+            combined = " > ".join([simplified_main] + levels[1:])
+            headers.append(combined)
+
+
 
     return headers
 
