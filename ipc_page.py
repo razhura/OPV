@@ -37,8 +37,9 @@ def parse_kekerasan_excel(file):
             stacked = pd.concat([values_e, values_f], ignore_index=True)
 
             result_df[batch] = stacked
-            result_df.index = range(1, len(result_df) + 1)
-
+            
+        # Set index mulai dari 1 (agar tidak bentrok saat loop)    
+        result_df.index = range(1, len(result_df) + 1)
 
         st.write("Data Kekerasan Terstruktur:")
         st.dataframe(result_df)
@@ -83,7 +84,9 @@ def parse_keseragaman_bobot_excel(file):
             stacked = pd.concat([values_e, values_f, values_g, values_h], ignore_index=True)
 
             result_df[batch] = stacked
-            result_df.index = range(1, len(result_df) + 1)
+            
+        # Set index mulai dari 1 (agar tidak bentrok saat loop)    
+        result_df.index = range(1, len(result_df) + 1)
 
 
         st.write("Data Keseragaman Bobot Terstruktur:")
