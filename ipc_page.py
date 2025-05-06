@@ -36,8 +36,10 @@ def parse_kekerasan_excel(file):
             values_f = subset.iloc[0:5, 5]
             stacked = pd.concat([values_e, values_f], ignore_index=True)
 
-            result_df[batch] = stacked
-            result_df.index = range(1, len(result_df) + 1)
+           result_df[batch] = stacked
+
+        # Set index mulai dari 1 (agar tidak bentrok saat loop)
+        result_df.index = range(1, len(result_df) + 1)
 
 
         st.write("Data Kekerasan Terstruktur:")
@@ -82,9 +84,10 @@ def parse_keseragaman_bobot_excel(file):
             values_h = subset.iloc[0:5, 7]
             stacked = pd.concat([values_e, values_f, values_g, values_h], ignore_index=True)
 
-            result_df[batch] = stacked
-            result_df.index = range(1, len(result_df) + 1)
+             result_df[batch] = stacked
 
+        # Set index mulai dari 1 (agar tidak bentrok saat loop)
+        result_df.index = range(1, len(result_df) + 1)
 
         st.write("Data Keseragaman Bobot Terstruktur:")
         st.dataframe(result_df)
@@ -170,9 +173,11 @@ def parse_waktu_hancur_friability_excel(file):
             row = [batch] + values
             result_rows.append(row)
 
-        # Buat dataframe hasil
-        columns = ["Batch"] + parameter_labels
-        result_df = pd.DataFrame(result_rows, columns=columns)
+  
+            result_df[batch] = stacked
+
+        # Set index mulai dari 1 (agar tidak bentrok saat loop)
+        result_df.index = range(1, len(result_df) + 1)
 
         st.write("Data Tebal Terstruktur:")
         st.dataframe(result_df)
@@ -207,7 +212,17 @@ def tampilkan_ipc():
     }
     
     st.info(f"Upload file Excel dengan format: {template_info[selected_option]}")
-    
+
+        # Fungsi untuk mengeksport DataFrame ke Excel
+    def export_dataframe(df, filename="data_export"):
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False)
+        output.seek(0)
+        b64 = base64.b64encode(output.read()).decode()
+        href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}.xlsx">📥 Download Excel File</a>'
+        return href
+        
     # File uploader tunggal
     uploaded_file = st.file_uploader("Upload file Excel sesuai template", type=["xlsx","ods"], key=f"uploader_{selected_option}")
     
