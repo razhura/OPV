@@ -25,7 +25,7 @@ if menu == "In Process Control (IPC)":
     st.stop()
 
 # Jika QCA, maka lanjutkan halaman QCA seperti sebelumnya...
-st.title("OPV KONIMEX V2.5")
+st.title("OPV KONIMEX V2.5.2")
 st.header("📊 Critical Quality Attribute (QCA)")
 
 # Fungsi parsing header bertingkat dari baris 4-6
@@ -218,15 +218,19 @@ if uploaded_file is not None:
                 rows_removed = rows_before - len(df_filtered)
                 st.success(f"✅ {rows_removed} baris dengan data kosong telah dihapus dari total {rows_before} baris.")
         
-            # Statistik numerik
+            # Statistik numerik sebagai baris tambahan
             numeric_cols = df_filtered.select_dtypes(include=np.number).columns.tolist()
             if numeric_cols:
-                stats = df_filtered[numeric_cols].agg(['min', 'max', 'mean']).T
-                stats.columns = ['Min', 'Max', 'Mean']
-                st.dataframe(stats)
+                stats = df_filtered[numeric_cols].agg(['min', 'max', 'mean'])
+                stats.index = ['Min', 'Max', 'Mean']
+        
+                # Gabungkan ke df_filtered sebagai baris
+                df_combined = pd.concat([df_filtered, stats], ignore_index=False)
+            else:
+                df_combined = df_filtered
         
             st.subheader("📄 Data Hasil Pemilihan Kolom" + (" dan Pembersihan Data" if enable_drop_empty else ""))
-            st.dataframe(df_filtered)
+            st.dataframe(df_combined)
         
             # Ekspor
             st.markdown(export_link, unsafe_allow_html=True)
