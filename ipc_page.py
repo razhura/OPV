@@ -185,6 +185,19 @@ def parse_waktu_hancur_friability_excel(file):
         st.error(f"Gagal memproses file Tebal: {e}")
         return None
 
+# Fungsi untuk mengeksport DataFrame ke Excel
+def export_dataframe(df, filename="data_export"):
+    """
+    Fungsi untuk mengekspor DataFrame ke file Excel yang dapat diunduh
+    """
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False)
+    output.seek(0)
+    b64 = base64.b64encode(output.read()).decode()
+    href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}.xlsx">📥 Download Excel File</a>'
+    return href
+
 def tampilkan_ipc():
     st.title("Halaman IPC")
     st.write("Ini adalah tampilan khusus IPC.")
