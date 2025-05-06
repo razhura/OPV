@@ -5,15 +5,28 @@ import re
 import io
 import base64
 import matplotlib.pyplot as plt
+from openpyxl import load_workbook
+
+# --- SET PAGE CONFIG
+st.set_page_config(page_title="Excel QCA Parser", layout="wide")
+
+# Modul internal
 from navbar import render_navbar
 from utils import combine_duplicate_columns
 from header_parser import extract_multi_level_headers
-from openpyxl import load_workbook
+from ipc_page import tampilkan_ipc
 
-st.set_page_config(page_title="Excel QCA Parser", layout="wide")
-render_navbar()
-st.title("📊 OPV KONIMEX V2.2")
+# --- Navigasi
+menu = st.sidebar.radio("Navigasi", ["Critical Quality Attribute (QCA)", "In Process Control (IPC)"])
 
+# --- Logika Halaman
+if menu == "In Process Control (IPC)":
+    tampilkan_ipc()  # ← tampilkan konten halaman IPC dari ipc_page.py
+    st.stop()
+
+# Jika QCA, maka lanjutkan halaman QCA seperti sebelumnya...
+st.title("OPV KONIMEX V2.3")
+st.header("📊 Critical Quality Attribute (QCA)")
 
 # Fungsi parsing header bertingkat dari baris 4-6
 def extract_multi_level_headers(excel_file, start_row=4, num_levels=3):
@@ -65,17 +78,6 @@ def export_dataframe(df, filename="data_export"):
     href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}.xlsx">📥 Download Excel File</a>'
     return href
 
-
-query_params = st.query_params
-page = query_params.get("page", ["QCA"])[0]
-
-
-if page == "IPC":
-    st.title("⚙️ In Process Control (IPC)")
-    st.info("Halaman IPC masih dalam pengembangan.")
-    st.stop()
-else:
-    st.title("📊 Critical Quality Attribute (QCA)")
 
 # Upload file Excel
 uploaded_file = st.file_uploader("Upload file Excel (.xlsx)", type=["xlsx", "ods"])
@@ -340,3 +342,5 @@ if uploaded_file is not None:
         st.info("Silakan pilih fitur yang ingin digunakan di atas.")
 else:
     st.warning("⚠️ SILAKAN UPLOAD FILE TERLEBIH DAHULU.")
+    
+
