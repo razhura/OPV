@@ -210,6 +210,8 @@ def tampilkan_ipc():
     }
     
     st.info(f"Upload file Excel dengan format: {template_info[selected_option]}")
+
+
     
     # File uploader tunggal
     uploaded_file = st.file_uploader("Upload file Excel sesuai template", type=["xlsx","ods"], key=f"uploader_{selected_option}")
@@ -260,3 +262,9 @@ def tampilkan_ipc():
                     if 'Friability' in df.columns:
                         st.subheader("Friability")
                         st.bar_chart(df['Friability'])
+
+              # Tampilkan tombol download jika data berhasil diproses
+        if df is not None:
+            filename = f"data_{selected_option.lower().replace(' ', '_')}"
+            st.markdown(export_dataframe(df, filename), unsafe_allow_html=True)
+            st.success(f"Data {selected_option} siap diunduh. Klik tombol di atas untuk mengunduh file Excel.")
