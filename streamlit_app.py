@@ -209,40 +209,31 @@ if uploaded_file is not None:
             enable_drop_empty = st.checkbox("🧹 Hapus data kosong", value=False)
         
         # Tampilkan opsi untuk hapus data kosong jika diaktifkan
-
-        # Tampilkan data dari kolom yang dipilih
         if selected_columns:
             df_filtered = df[selected_columns]
+        
             if enable_drop_empty:
                 rows_before = len(df_filtered)
                 df_filtered = df_filtered.dropna(subset=selected_columns)
                 rows_removed = rows_before - len(df_filtered)
                 st.success(f"✅ {rows_removed} baris dengan data kosong telah dihapus dari total {rows_before} baris.")
-
-            
-            st.subheader("📄 Data Hasil Pemilihan Kolom" + (" dan Pembersihan Data" if enable_drop_empty else ""))
-            st.dataframe(df_filtered)
-            
-            # Tambahkan tombol ekspor untuk data kolom yang dipilih
-            export_link = export_dataframe(df_filtered, "data_hasil_filter")
-            st.markdown(export_link, unsafe_allow_html=True)
-
+        
             # Statistik numerik
-            st.subheader("📊 Statistik Ringkasan (Numerik)")
             numeric_cols = df_filtered.select_dtypes(include=np.number).columns.tolist()
-
             if numeric_cols:
                 stats = df_filtered[numeric_cols].agg(['min', 'max', 'mean']).T
                 stats.columns = ['Min', 'Max', 'Mean']
                 st.dataframe(stats)
-                
-                # Tambahkan tombol ekspor untuk statistik
-                export_link = export_dataframe(stats, "statistik_data")
-                st.markdown(export_link, unsafe_allow_html=True)
-            else:
-                st.info("Tidak ada kolom numerik dalam data yang difilter.")
+        
+            st.subheader("📄 Data Hasil Pemilihan Kolom" + (" dan Pembersihan Data" if enable_drop_empty else ""))
+            st.dataframe(df_filtered)
+        
+            # Ekspor
+            st.markdown(export_link, unsafe_allow_html=True)
+        
         else:
             st.info("Silakan pilih minimal satu kolom untuk ditampilkan.")
+
     
     # === FITUR: PILIH BATCH ===
     elif feature_choice == "Pilih Batch":
