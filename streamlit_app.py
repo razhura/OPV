@@ -106,6 +106,11 @@ if uploaded_file is not None:
                 return pd.NA
 
             df[col] = sample.apply(safe_float)
+
+
+    
+    # Hapus baris yang mengandung 'Rata-rata', 'SD', atau 'RSD' di kolom A
+    df = df[~df.iloc[:, 0].astype(str).str.contains("Average|SD|UCL", na=False)]
     
     # Gabungkan kolom duplikat
     df = combine_duplicate_columns(df)
