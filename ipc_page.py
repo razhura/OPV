@@ -3,6 +3,7 @@
 import streamlit as st
 import pandas as pd
 import io
+import base64
 
 def parse_kekerasan_excel(file):
     """
