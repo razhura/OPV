@@ -3,5 +3,4 @@ pandas
 openpyxl
 matplotlib
 odfpy
-io
-base64
+
