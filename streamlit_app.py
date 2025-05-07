@@ -221,11 +221,27 @@ if uploaded_file is not None:
             # Statistik numerik sebagai baris tambahan
             numeric_cols = df_filtered.select_dtypes(include=np.number).columns.tolist()
             if numeric_cols:
-                stats = df_filtered[numeric_cols].agg(['min', 'max', 'mean'])
-                stats.index = ['Min', 'Max', 'Mean']
-        
+                stats = df_filtered[numeric_cols].agg(['min', 'max', 'mean', 'std'])
+                
+                # Tambahkan handling untuk menghindari division by zero
+                try:
+                    # Hitung RSD dengan penanganan nilai 0 pada mean
+                    rsd = pd.Series(index=stats.columns)
+                    for col in stats.columns:
+                        if stats.loc['mean', col] != 0:  # Hindari division by zero
+                            rsd[col] = (stats.loc['std', col] / stats.loc['mean', col]) * 100
+                        else:
+                            rsd[col] = pd.NA  # Jika mean = 0, set RSD ke NA
+                    
+                    # Tambahkan RSD ke stats
+                    stats.loc['RSD'] = rsd
+                except Exception as e:
+                    st.warning(f"Tidak dapat menghitung RSD: {str(e)}")
+                
+                stats.index = ['Min', 'Max', 'Mean', 'SD', 'RSD']
+
                 # Gabungkan ke df_filtered sebagai baris
-                df_combined = pd.concat([df_filtered, stats], ignore_index=False)
+                df_combined = pd.concat([df_filtered, stats.T.reset_index().T], ignore_index=False)
             else:
                 df_combined = df_filtered
         
@@ -233,7 +249,8 @@ if uploaded_file is not None:
             st.dataframe(df_combined)
         
             # Ekspor
-            st.markdown(export_link, unsafe_allow_html=True)
+            export_link_filtered = export_dataframe(df_combined, "data_filtered")
+            st.markdown(export_link_filtered, unsafe_allow_html=True)
         
         else:
             st.info("Silakan pilih minimal satu kolom untuk ditampilkan.")
@@ -342,5 +359,3 @@ if uploaded_file is not None:
         st.info("Silakan pilih fitur yang ingin digunakan di atas.")
 else:
     st.warning("⚠️ SILAKAN UPLOAD FILE TERLEBIH DAHULU.")
-    
-
