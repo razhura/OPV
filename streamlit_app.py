@@ -25,7 +25,7 @@ if menu == "In Process Control (IPC)":
     st.stop()
 
 # Jika QCA, maka lanjutkan halaman QCA seperti sebelumnya...
-st.title("OPV KONIMEX V2.5.3")
+st.title("OPV KONIMEX V3.0")
 st.header("📊 Critical Quality Attribute (CQA)")
 
 # Fungsi parsing header bertingkat dari baris 4-6
