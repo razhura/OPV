@@ -352,120 +352,127 @@ def parse_tebal_excel(file):
     
 def parse_waktu_hancur_friability_excel(file):
     """
-    Parsing untuk template Excel pengujian Waktu Hancur dan Friability
+    Parses Excel template for Waktu Hancur (Disintegration Time) and Friability testing data.
+    
+    This function reads an Excel file with pharmaceutical test data and creates two separate DataFrames
+    for Waktu Hancur and Friability data with the actual sample values.
+    
+    Args:
+        file: The uploaded Excel file object
+        
+    Returns:
+        tuple: Two DataFrames (waktu_hancur_df, friability_df) with actual sample values
     """
     try:
+        # Read the Excel file - automatically handle different formats
         df = pd.read_excel(file, header=None)
-
-        # Ambil baris pertama sebagai header
-        header_row = df.iloc[0]
-        df = df[1:]
-        df.columns = header_row
-        df.reset_index(drop=True, inplace=True)
-
-        # Ambil semua nomor batch unik dari kolom A
-        batch_series = df.iloc[:, 0].dropna().unique()
-
-        # Ambil label baris dari kolom E (kolom ke-5 -> index 4)
-        parameter_labels = df.iloc[0:2, 4].tolist()
-
-        result_rows = []
-
-        for batch in batch_series:
-            subset = df[df.iloc[:, 0] == batch]
-            if subset.empty:
-                continue
-
-            try:
-                # Ambil 2 nilai dari kolom E (baris 0 dan 1 relatif terhadap subset)
-                values = subset.iloc[0:2, 4].tolist()
-                
-                # Fungsi untuk membersihkan dan memproses data
-                def clean_numeric_value(val):
-                    if isinstance(val, str):
-                        # Coba pisahkan nilai jika string terlalu panjang dan tanpa spasi
-                        if len(val) > 8 and not ' ' in val:
-                            # Ekstrak angka-angka dari string menggunakan regex
-                            import re
-                            numbers = re.findall(r'\d+\.\d+|\d+', val)
-                            if numbers:
-                                # Ambil nilai tengah jika ada beberapa angka
-                                middle_index = len(numbers) // 2
-                                return float(numbers[middle_index])
-                            else:
-                                return np.nan
-                        else:
-                            try:
-                                return float(val)
-                            except:
-                                return np.nan
-                    else:
-                        return val
-                
-                # Apply cleaning function ke semua nilai
-                cleaned_values = [clean_numeric_value(val) for val in values]
-                
-                # Gabungkan batch + data
-                row = [batch] + cleaned_values
-                result_rows.append(row)
-                
-            except Exception as e:
-                st.warning(f"Ada masalah saat memproses batch {batch}: {e}")
-                # Lanjutkan ke batch berikutnya
-                continue
+        
+        # Debug information
+        st.write("Excel file loaded. Shape:", df.shape)
+        
+        # First, try to find header row by looking for "Nomor Batch"
+        header_row_idx = None
+        batch_col = None
+        value_col = None
+        
+        # Look for header row containing "Nomor Batch"
+        for i in range(min(10, len(df))):  # Check first 10 rows
+            row = df.iloc[i]
+            for j, cell in enumerate(row):
+                if isinstance(cell, str) and "Nomor Batch" in cell:
+                    header_row_idx = i
+                    batch_col = j
+                    break
+            if header_row_idx is not None:
+                break
+        
+        # If not found by string matching, use the first row
+        if header_row_idx is None:
+            header_row_idx = 0
+            # Try to guess batch column (usually first column)
+            batch_col = 0
             
-        # Periksa apakah ada data yang berhasil diproses
-        if not result_rows:
-            st.error("Tidak ada data valid yang dapat diproses.")
-            return None
+        # Look for "Sample Data" column
+        if header_row_idx is not None:
+            header_row = df.iloc[header_row_idx]
+            for j, cell in enumerate(header_row):
+                if isinstance(cell, str) and "Sample Data" in cell:
+                    value_col = j
+                    break
+        
+        # If still not found, try column E (index 4) which is common for Sample Data
+        if value_col is None:
+            value_col = 4  # Assume column E (index 4) contains values
             
-        # Buat dataframe hasil
-        columns = ["Batch"] + parameter_labels
-        result_df = pd.DataFrame(result_rows, columns=columns)
+        # Debug info
+        st.write(f"Using header row: {header_row_idx}, Batch column: {batch_col}, Value column: {value_col}")
         
-        # Pastikan kolom numerik dikonversi dengan benar
-        for param in parameter_labels:
-            result_df[param] = pd.to_numeric(result_df[param], errors='coerce')
-
-        # Tampilkan dataframe hasil
-        st.write("Data Waktu Hancur dan Friability Terstruktur:")
-        st.dataframe(result_df)
+        # Get data rows (skip header)
+        data_df = df.iloc[header_row_idx+1:].copy()
         
-        # Untuk waktu hancur dan friability, kita perlu menghitung statistik untuk masing-masing parameter
-        # Karena formatnya berbeda (data sudah dalam format lebar, bukan panjang)
-        stats = {}
+        # Filter out rows with no batch numbers
+        data_df = data_df[~data_df.iloc[:, batch_col].isna()]
         
-        # Loop melalui setiap parameter (kecuali kolom Batch)
-        for param in parameter_labels:
-            try:
-                param_data = result_df[param]
+        # Initialize dictionaries to store batch numbers and their values
+        friability_data = {}
+        waktu_hancur_data = {}
+        
+        # Process each row
+        for _, row in data_df.iterrows():
+            batch = row.iloc[batch_col]
+            value = row.iloc[value_col] if not pd.isna(row.iloc[value_col]) else None
+            
+            # Skip rows with no value
+            if value is None:
+                continue
                 
-                # Hitung statistik
-                stats[f"{param}_MIN"] = param_data.min()
-                stats[f"{param}_MAX"] = param_data.max()
-                stats[f"{param}_MEAN"] = param_data.mean()
-                stats[f"{param}_SD"] = param_data.std()
-                # Calculate RSD
-                stats[f"{param}_RSD (%)"] = (param_data.std() / param_data.mean() * 100) if param_data.mean() != 0 else 0
-            except Exception as e:
-                st.warning(f"Tidak dapat menghitung statistik untuk parameter {param}: {e}")
+            try:
+                # Convert to float for comparison
+                value_float = float(value)
+                
+                # Sort based on Sample Data value
+                if value_float < 2.5:
+                    friability_data[str(batch)] = value_float
+                else:
+                    waktu_hancur_data[str(batch)] = value_float
+            except (ValueError, TypeError):
+                # If value can't be converted to float, skip this row
+                st.warning(f"Skipping row with batch {batch}, invalid value: {value}")
+                continue
         
-        # Buat dataframe statistik
-        stats_df = pd.DataFrame([stats])
+        # Create individual DataFrames with actual values
+        waktu_hancur_df = pd.DataFrame({
+            "Batch": list(waktu_hancur_data.keys()),
+            "Waktu Hancur": list(waktu_hancur_data.values())
+        })
         
-        st.write("Statistik Data Waktu Hancur dan Friability:")
-        st.dataframe(stats_df.style.format("{:.4f}"))
+        friability_df = pd.DataFrame({
+            "Batch": list(friability_data.keys()),
+            "Friability": list(friability_data.values())
+        })
         
-        # Untuk ekspor, gabungkan kedua dataframe dengan cara yang berbeda
-        # Ubah format stats_df agar cocok untuk digabungkan
-        export_df = pd.concat([result_df, stats_df.T.reset_index()], axis=1)
+        # Sort DataFrames by Batch
+        waktu_hancur_df = waktu_hancur_df.sort_values("Batch").reset_index(drop=True)
+        friability_df = friability_df.sort_values("Batch").reset_index(drop=True)
         
-        return export_df
-
+        # Display results
+        st.write("Tabel Waktu Hancur:")
+        st.dataframe(waktu_hancur_df)
+        
+        st.write("Tabel Friability:")
+        st.dataframe(friability_df)
+        
+        # Return both DataFrames
+        return waktu_hancur_df, friability_df
+    
     except Exception as e:
         st.error(f"Gagal memproses file Waktu Hancur dan Friability: {e}")
-        st.write("Detail error:", str(e))
-        return None
+        st.exception(e)
+        # Return empty DataFrames with the required columns
+        return (
+            pd.DataFrame(columns=["Batch", "Waktu Hancur"]),
+            pd.DataFrame(columns=["Batch", "Friability"])
+        )
 
 # Fungsi untuk visualisasi box plot
 def create_boxplot(df):
