@@ -1,5 +1,3 @@
-# ipc_page.py
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -567,6 +565,11 @@ def tampilkan_ipc():
                 st.write("Box Plot Kekerasan per Batch:")
                 st.plotly_chart(create_boxplot(viz_df))
                 
+                # Tampilkan tombol download
+                filename = "data_kekerasan"
+                st.markdown(export_dataframe(df, filename), unsafe_allow_html=True)
+                st.success("Data Kekerasan siap diunduh. Klik tombol di atas untuk mengunduh file Excel.")
+                
         elif selected_option == "Keseragaman Bobot":
             df = parse_keseragaman_bobot_excel(file_copy)
             if df is not None:
@@ -582,6 +585,11 @@ def tampilkan_ipc():
                 # Box plot untuk distribusi data
                 st.write("Box Plot Keseragaman Bobot per Batch:")
                 st.plotly_chart(create_boxplot(viz_df))
+                
+                # Tampilkan tombol download
+                filename = "data_keseragaman_bobot"
+                st.markdown(export_dataframe(df, filename), unsafe_allow_html=True)
+                st.success("Data Keseragaman Bobot siap diunduh. Klik tombol di atas untuk mengunduh file Excel.")
                 
         elif selected_option == "Tebal":
             df = parse_tebal_excel(file_copy)
@@ -599,34 +607,48 @@ def tampilkan_ipc():
                 # Box plot untuk distribusi data
                 st.write("Box Plot Tebal per Batch:")
                 st.plotly_chart(create_boxplot(viz_df))
+                
+                # Tampilkan tombol download
+                filename = "data_tebal"
+                st.markdown(export_dataframe(df, filename), unsafe_allow_html=True)
+                st.success("Data Tebal siap diunduh. Klik tombol di atas untuk mengunduh file Excel.")
         
         elif selected_option == "Waktu Hancur dan Friability":
-            df = parse_waktu_hancur_friability_excel(file_copy)
-            if df is not None:
-                # Tambahkan visualisasi
+            # Fixed: Unpacking the tuple returned by parse_waktu_hancur_friability_excel
+            waktu_hancur_df, friability_df = parse_waktu_hancur_friability_excel(file_copy)
+            
+            # Tambahkan visualisasi jika kedua dataframe memiliki data
+            if not waktu_hancur_df.empty or not friability_df.empty:
                 st.subheader("Visualisasi Data")
                 
-                # Karena struktur data berbeda, kita perlu pendekatan visualisasi yang berbeda
-                if "Waktu Hancur" in df.columns and "Friability" in df.columns:
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    if not waktu_hancur_df.empty:
                         st.write("Waktu Hancur per Batch:")
-                        # Filter hanya baris data (bukan statistik)
-                        data_df = df[~df["Batch"].astype(str).str.contains("_", na=False)]
-                        st.bar_chart(data_df.set_index("Batch")["Waktu Hancur"])
-                    
-                    with col2:
+                        st.bar_chart(waktu_hancur_df.set_index("Batch")["Waktu Hancur"])
+                    else:
+                        st.info("Tidak ada data Waktu Hancur yang valid.")
+                
+                with col2:
+                    if not friability_df.empty:
                         st.write("Friability per Batch:")
-                        st.bar_chart(data_df.set_index("Batch")["Friability"])
+                        st.bar_chart(friability_df.set_index("Batch")["Friability"])
+                    else:
+                        st.info("Tidak ada data Friability yang valid.")
+                
+                # Tampilkan tombol download untuk masing-masing dataframe
+                if not waktu_hancur_df.empty:
+                    st.markdown(export_dataframe(waktu_hancur_df, "data_waktu_hancur"), unsafe_allow_html=True)
+                    st.success("Data Waktu Hancur siap diunduh. Klik tombol di atas untuk mengunduh file Excel.")
+                
+                if not friability_df.empty:
+                    st.markdown(export_dataframe(friability_df, "data_friability"), unsafe_allow_html=True)
+                    st.success("Data Friability siap diunduh. Klik tombol di atas untuk mengunduh file Excel.")
 
-        # Tampilkan tombol download jika data berhasil diproses
-        if df is not None:
-            filename = f"data_{selected_option.lower().replace(' ', '_')}"
-            st.markdown(export_dataframe(df, filename), unsafe_allow_html=True)
-            st.success(f"Data {selected_option} siap diunduh. Klik tombol di atas untuk mengunduh file Excel.")
-            
-            # Tambahkan opsi untuk menampilkan semua data dalam bentuk tabel
+        # Tambahkan opsi untuk menampilkan semua data dalam bentuk tabel
+        # (Kecuali untuk Waktu Hancur dan Friability yang sudah ditampilkan)
+        if selected_option != "Waktu Hancur dan Friability" and 'df' in locals() and df is not None:
             if st.checkbox("Tampilkan semua data dalam bentuk tabel"):
                 st.write("Data Lengkap (termasuk statistik):")
                 st.dataframe(df)
