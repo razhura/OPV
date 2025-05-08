@@ -127,9 +127,7 @@ def parse_kekerasan_excel(file):
         # Set index mulai dari 1 (agar tidak bentrok saat loop)    
         result_df.index = range(1, len(result_df) + 1)
 
-        # Tampilkan dataframe hasil
-        st.write("Data Kekerasan Terstruktur:")
-        st.dataframe(result_df)
+
         
         # Hitung dan tampilkan statistik
         stats_df = calculate_statistics(result_df)
@@ -256,6 +254,10 @@ def parse_tebal_excel(file):
     Parsing untuk template Excel pengujian Tebal
     """
     try:
+        import pandas as pd
+        import numpy as np
+        import streamlit as st
+        
         df = pd.read_excel(file, header=None)
 
         # Ambil baris pertama sebagai header
@@ -277,14 +279,18 @@ def parse_tebal_excel(file):
             try:
                 # Ambil data dari kolom E (data 1-3) dan F (data 4-6)
                 # Kolom ke-5 dan ke-6 (indeks 4 dan 5)
-                values_e = subset.iloc[0:3, 4]
-                values_f = subset.iloc[0:3, 5]
+                values_e = subset.iloc[0:3, 4].copy()  # Gunakan copy() untuk menghindari SettingWithCopyWarning
+                values_f = subset.iloc[0:3, 5].copy()
                 
                 # Fungsi untuk membersihkan dan memproses data
                 def clean_numeric_value(val):
+                    if pd.isna(val):
+                        return np.nan
+                    if isinstance(val, (int, float)):
+                        return float(val)
                     if isinstance(val, str):
                         # Coba pisahkan nilai jika string terlalu panjang dan tanpa spasi
-                        if len(val) > 8 and not ' ' in val:
+                        if len(val) > 8 and ' ' not in val:
                             # Ekstrak angka-angka dari string menggunakan regex
                             import re
                             numbers = re.findall(r'\d+\.\d+|\d+', val)
@@ -300,7 +306,7 @@ def parse_tebal_excel(file):
                             except:
                                 return np.nan
                     else:
-                        return val
+                        return np.nan
                 
                 # Apply cleaning function ke semua nilai
                 values_e = values_e.apply(clean_numeric_value)
@@ -314,8 +320,10 @@ def parse_tebal_excel(file):
                 # Hapus nilai NaN jika ada
                 stacked = stacked.dropna()
                 
-                result_df[batch] = stacked
-                
+                # Tambahkan ke result_df hanya jika ada data valid
+                if not stacked.empty:
+                    result_df[str(batch)] = stacked  # Konversi batch ke string untuk menghindari masalah tipe data
+            
             except Exception as e:
                 st.warning(f"Ada masalah saat memproses batch {batch}: {e}")
                 # Lanjutkan ke batch berikutnya
@@ -326,40 +334,79 @@ def parse_tebal_excel(file):
             st.error("Tidak ada data valid yang dapat diproses.")
             return None
 
-        # Set index mulai dari 1 (agar tidak bentrok saat loop)
+        # Set index mulai dari 1
         result_df.index = range(1, len(result_df) + 1)
 
-        # Tampilkan dataframe hasil
-        st.write("Data Tebal Terstruktur:")
-        st.dataframe(result_df)
+        # Hitung statistik
+        stats = {}
+        stats["MIN"] = result_df.min()
+        stats["MAX"] = result_df.max()
+        stats["MEAN"] = result_df.mean()
+        stats["SD"] = result_df.std()
+        stats["RSD (%)"] = (stats["SD"] / stats["MEAN"]) * 100
         
-        # Hitung dan tampilkan statistik
-        stats_df = calculate_statistics(result_df)
-        st.write("Statistik Data Tebal:")
-        st.dataframe(stats_df.style.format("{:.4f}"))
+        # Buat DataFrame statistik
+        stats_df = pd.DataFrame(stats)
         
-        # Gabungkan dataframe untuk ekspor
-        export_df = pd.concat([result_df, stats_df])
+        # Transpose agar statsnya menjadi baris
+        stats_df = stats_df.T
         
-        return export_df
+        # Gabungkan kedua dataframe secara vertikal
+        # Pertama, kita perlu memastikan bahwa stats_df memiliki indeks yang tidak bentrok
+        max_index = result_df.index.max()
+        stats_df.index = range(max_index + 1, max_index + 1 + len(stats_df))
+        
+        # Gabungkan dataframe data dengan dataframe statistik
+        combined_df = pd.concat([result_df, stats_df])
+        
+        # Tambahkan kolom label di awal untuk memberikan nama pada baris statistik
+        # Buat kolom label dengan NaN untuk baris data
+        labels = pd.Series([""] * len(result_df), index=result_df.index)  # Gunakan string kosong daripada NaN
+        
+        # Tambahkan label untuk baris statistik
+        for i, stat_name in enumerate(["MIN", "MAX", "MEAN", "SD", "RSD (%)"], start=max_index + 1):
+            labels[i] = stat_name
+            
+        # Tambahkan kolom label ke dataframe gabungan
+        combined_df.insert(0, "", labels)
+        
+        # Tampilkan dataframe gabungan
+        st.write("Data Tebal Terstruktur dengan Statistik:")
+        
+        # Format angka dalam dataframe dengan 4 angka desimal
+        # Gunakan fungsi format khusus untuk menangani nilai non-numerik
+        def format_values(val):
+            if isinstance(val, (int, float)) and not pd.isna(val):
+                return f"{val:.4f}"
+            return val
+        
+        # Gunakan applymap untuk menerapkan format ke seluruh dataframe
+        formatted_df = combined_df.applymap(format_values)
+        
+        # Tampilkan dataframe yang sudah diformat
+        st.dataframe(formatted_df)
+        
+
 
     except Exception as e:
         st.error(f"Gagal memproses file Tebal: {e}")
         st.write("Detail error:", str(e))
         return None
     
+    
 def parse_waktu_hancur_friability_excel(file):
     """
     Parses Excel template for Waktu Hancur (Disintegration Time) and Friability testing data.
     
     This function reads an Excel file with pharmaceutical test data and creates two separate DataFrames
-    for Waktu Hancur and Friability data with the actual sample values.
+    for Waktu Hancur and Friability data, with both displayed in a consolidated format that includes
+    batch data and statistics in a single table.
     
     Args:
         file: The uploaded Excel file object
         
     Returns:
-        tuple: Two DataFrames (waktu_hancur_df, friability_df) with actual sample values
+        tuple: Two DataFrames (waktu_hancur_df, friability_df) for display
     """
     try:
         # Read the Excel file - automatically handle different formats
@@ -415,6 +462,10 @@ def parse_waktu_hancur_friability_excel(file):
         friability_data = {}
         waktu_hancur_data = {}
         
+        # Lists to collect all values for overall statistics
+        all_friability_values = []
+        all_waktu_hancur_values = []
+        
         # Process each row
         for _, row in data_df.iterrows():
             batch = row.iloc[batch_col]
@@ -428,37 +479,104 @@ def parse_waktu_hancur_friability_excel(file):
                 # Convert to float for comparison
                 value_float = float(value)
                 
-                # Sort based on Sample Data value
+                # Sort based on Sample Data value - friability is typically less than 2.5%
                 if value_float < 2.5:
-                    friability_data[str(batch)] = value_float
+                    # Add to batch-specific data
+                    if str(batch) not in friability_data:
+                        friability_data[str(batch)] = value_float
+                    
+                    # Add to all values for overall statistics
+                    all_friability_values.append(value_float)
                 else:
-                    waktu_hancur_data[str(batch)] = value_float
+                    # Add to batch-specific data
+                    if str(batch) not in waktu_hancur_data:
+                        waktu_hancur_data[str(batch)] = value_float
+                    
+                    # Add to all values for overall statistics
+                    all_waktu_hancur_values.append(value_float)
             except (ValueError, TypeError):
                 # If value can't be converted to float, skip this row
                 st.warning(f"Skipping row with batch {batch}, invalid value: {value}")
                 continue
         
-        # Create individual DataFrames with actual values
-        waktu_hancur_df = pd.DataFrame({
-            "Batch": list(waktu_hancur_data.keys()),
-            "Waktu Hancur": list(waktu_hancur_data.values())
-        })
+        # Calculate overall statistics for Waktu Hancur
+        waktu_hancur_min = min(all_waktu_hancur_values) if all_waktu_hancur_values else None
+        waktu_hancur_max = max(all_waktu_hancur_values) if all_waktu_hancur_values else None
+        waktu_hancur_mean = sum(all_waktu_hancur_values)/len(all_waktu_hancur_values) if all_waktu_hancur_values else None
         
-        friability_df = pd.DataFrame({
-            "Batch": list(friability_data.keys()),
-            "Friability": list(friability_data.values())
-        })
+        # Calculate SD and RSD only if there are multiple values to compare
+        if len(all_waktu_hancur_values) > 1:
+            waktu_hancur_sd = np.std(all_waktu_hancur_values, ddof=1)
+            waktu_hancur_rsd = (waktu_hancur_sd / waktu_hancur_mean * 100) if waktu_hancur_mean else None
+        else:
+            waktu_hancur_sd = None
+            waktu_hancur_rsd = None
         
-        # Sort DataFrames by Batch
-        waktu_hancur_df = waktu_hancur_df.sort_values("Batch").reset_index(drop=True)
-        friability_df = friability_df.sort_values("Batch").reset_index(drop=True)
+        # Calculate overall statistics for Friability
+        friability_min = min(all_friability_values) if all_friability_values else None
+        friability_max = max(all_friability_values) if all_friability_values else None
+        friability_mean = sum(all_friability_values)/len(all_friability_values) if all_friability_values else None
         
-        # Display results
-        st.write("Tabel Waktu Hancur:")
-        st.dataframe(waktu_hancur_df)
+        # Calculate SD and RSD only if there are multiple values to compare
+        if len(all_friability_values) > 1:
+            friability_sd = np.std(all_friability_values, ddof=1)
+            friability_rsd = (friability_sd / friability_mean * 100) if friability_mean else None
+        else:
+            friability_sd = None
+            friability_rsd = None
         
-        st.write("Tabel Friability:")
-        st.dataframe(friability_df)
+        # Create consolidated friability DataFrame
+        friability_df = pd.DataFrame()
+        if friability_data:
+            # Create DataFrame with batch data
+            batch_df = pd.DataFrame({
+                "Batch": list(friability_data.keys()),
+                "Friability": list(friability_data.values())
+            })
+            
+            # Sort by Batch for consistent display
+            batch_df = batch_df.sort_values("Batch").reset_index(drop=True)
+            
+            # Create statistics DataFrame
+            stats_df = pd.DataFrame({
+                "Batch": ["Minimum", "Maximum", "Rata-rata", "Standar Deviasi", "RSD (%)"],
+                "Friability": [friability_min, friability_max, friability_mean, friability_sd, friability_rsd]
+            })
+            
+            # Combine batch data with statistics at the bottom
+            friability_df = pd.concat([batch_df, stats_df], ignore_index=True)
+        
+        # Create consolidated waktu hancur DataFrame
+        waktu_hancur_df = pd.DataFrame()
+        if waktu_hancur_data:
+            # Create DataFrame with batch data
+            batch_df = pd.DataFrame({
+                "Batch": list(waktu_hancur_data.keys()),
+                "Waktu Hancur": list(waktu_hancur_data.values())
+            })
+            
+            # Sort by Batch for consistent display
+            batch_df = batch_df.sort_values("Batch").reset_index(drop=True)
+            
+            # Create statistics DataFrame
+            stats_df = pd.DataFrame({
+                "Batch": ["Minimum", "Maximum", "Rata-rata", "Standar Deviasi", "RSD (%)"],
+                "Waktu Hancur": [waktu_hancur_min, waktu_hancur_max, waktu_hancur_mean, waktu_hancur_sd, waktu_hancur_rsd]
+            })
+            
+            # Combine batch data with statistics at the bottom
+            waktu_hancur_df = pd.concat([batch_df, stats_df], ignore_index=True)
+        
+        # Display the consolidated tables
+        st.write("Tabel Waktu Hancur dengan Statistik:")
+        st.dataframe(waktu_hancur_df.style.format({
+            "Waktu Hancur": "{:.4f}"
+        }))
+        
+        st.write("Tabel Friability dengan Statistik:")
+        st.dataframe(friability_df.style.format({
+            "Friability": "{:.4f}"
+        }))
         
         # Return both DataFrames
         return waktu_hancur_df, friability_df
@@ -466,11 +584,8 @@ def parse_waktu_hancur_friability_excel(file):
     except Exception as e:
         st.error(f"Gagal memproses file Waktu Hancur dan Friability: {e}")
         st.exception(e)
-        # Return empty DataFrames with the required columns
-        return (
-            pd.DataFrame(columns=["Batch", "Waktu Hancur"]),
-            pd.DataFrame(columns=["Batch", "Friability"])
-        )
+        # Return empty DataFrames
+        return pd.DataFrame(), pd.DataFrame()
 
 # Fungsi untuk visualisasi box plot
 def create_boxplot(df):
@@ -617,32 +732,14 @@ def tampilkan_ipc():
             # Fixed: Unpacking the tuple returned by parse_waktu_hancur_friability_excel
             waktu_hancur_df, friability_df = parse_waktu_hancur_friability_excel(file_copy)
             
-            # Tambahkan visualisasi jika kedua dataframe memiliki data
-            if not waktu_hancur_df.empty or not friability_df.empty:
-                st.subheader("Visualisasi Data")
-                
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    if not waktu_hancur_df.empty:
-                        st.write("Waktu Hancur per Batch:")
-                        st.bar_chart(waktu_hancur_df.set_index("Batch")["Waktu Hancur"])
-                    else:
-                        st.info("Tidak ada data Waktu Hancur yang valid.")
-                
-                with col2:
-                    if not friability_df.empty:
-                        st.write("Friability per Batch:")
-                        st.bar_chart(friability_df.set_index("Batch")["Friability"])
-                    else:
-                        st.info("Tidak ada data Friability yang valid.")
+
                 
                 # Tampilkan tombol download untuk masing-masing dataframe
-                if not waktu_hancur_df.empty:
+            if not waktu_hancur_df.empty:
                     st.markdown(export_dataframe(waktu_hancur_df, "data_waktu_hancur"), unsafe_allow_html=True)
                     st.success("Data Waktu Hancur siap diunduh. Klik tombol di atas untuk mengunduh file Excel.")
                 
-                if not friability_df.empty:
+            if not friability_df.empty:
                     st.markdown(export_dataframe(friability_df, "data_friability"), unsafe_allow_html=True)
                     st.success("Data Friability siap diunduh. Klik tombol di atas untuk mengunduh file Excel.")
 
