@@ -15,13 +15,18 @@ from navbar import render_navbar
 from utils import combine_duplicate_columns
 from header_parser import extract_multi_level_headers
 from ipc_page import tampilkan_ipc
+from bahan_page import tampilkan_bahan
 
 # --- Navigasi
-menu = st.sidebar.radio("Navigasi", ["Critical Quality Attribute (CQA)", "In Process Control (IPC)"])
+menu = st.sidebar.radio("Navigasi", ["Critical Quality Attribute (CQA)", "In Process Control (IPC)","CPP BAHAN"])
 
 # --- Logika Halaman
 if menu == "In Process Control (IPC)":
     tampilkan_ipc()  # ← tampilkan konten halaman IPC dari ipc_page.py
+    st.stop()
+
+if menu == "CPP BAHAN":
+    tampilkan_bahan()
     st.stop()
 
 # Jika QCA, maka lanjutkan halaman QCA seperti sebelumnya...
