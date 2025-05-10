@@ -42,7 +42,7 @@ if menu == "CPP BAHAN":
     st.stop()
 
 # Jika QCA, maka lanjutkan halaman QCA seperti sebelumnya...
-st.title("OPV KONIMEX V3.0")
+st.title("OPV KONIMEX V3.5")
 st.header("📊 Critical Quality Attribute (CQA)")
 
 # Fungsi parsing header bertingkat dari baris 4-6
