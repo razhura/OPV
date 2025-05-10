@@ -26,7 +26,19 @@ if menu == "In Process Control (IPC)":
     st.stop()
 
 if menu == "CPP BAHAN":
-    tampilkan_bahan()
+    # Submenu untuk CPP BAHAN
+    submenu = st.sidebar.radio("Submenu CPP Bahan", ["Upload File", "Ekstrak Data Batch"])
+
+    if submenu == "Upload File":
+        st.title("📤 Upload File CPP")
+        # Di sini bisa kamu panggil fungsi atau tulis langsung logika upload file
+        tampilkan_bahan()
+
+    elif submenu == "Ekstrak Data Batch":
+        st.title("🔍 FILTER LABEL QC")
+        # Fungsi ekstraksi data batch, bisa dipisah atau gabung di tampilkan_bahan()
+        filter_labelqc()
+
     st.stop()
 
 # Jika QCA, maka lanjutkan halaman QCA seperti sebelumnya...
