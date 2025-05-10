@@ -35,7 +35,7 @@ if menu == "CPP BAHAN":
         # Di sini bisa kamu panggil fungsi atau tulis langsung logika upload file
         tampilkan_bahan()
 
-    elif submenu == "FILTER LABEL QC":
+    elif submenu == "FILTERS LABEL QC":
         st.title("🔍 FILTER LABEL QC")
         # Fungsi ekstraksi data batch, bisa dipisah atau gabung di tampilkan_bahan()
         filter_labelqc()
