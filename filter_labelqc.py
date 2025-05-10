@@ -6,6 +6,8 @@ from openpyxl import load_workbook
 import re
 import os
 
+
+
 def filter_labelqc():
     st.title("📤 UPLOAD HASIL JADI DARI CPP BAHAN")
     uploaded_file = st.file_uploader("Upload file Excel", type=["xlsx", "csv"])
@@ -41,7 +43,53 @@ def filter_labelqc():
                 ])
 
             kode_bahan_list = sorted(all_kode_bahan.dropna().unique())
-            selected_kode = st.selectbox("🔍 Pilih Kode Bahan", kode_bahan_list)
+            
+            # Buat dataframe yang berisi semua pasangan Kode Bahan dan Label QC
+            all_data = []
+            for kode_col, label_col in kode_bahan_pairs:
+                valid_rows = df_asli[[kode_col, label_col]].dropna(subset=[kode_col])
+                for _, row in valid_rows.iterrows():
+                    all_data.append({
+                        "Kode Bahan": str(row[kode_col]).strip(),
+                        "Label QC": row[label_col] if pd.notna(row[label_col]) else ""
+                    })
+            
+            # Buat dataframe untuk semua data
+            complete_df = pd.DataFrame(all_data)
+            
+            # Buat ringkasan untuk semua kode bahan
+            grouped_all_df = (
+                complete_df
+                .drop_duplicates()
+                .groupby("Kode Bahan")["Label QC"]
+                .unique()
+                .reset_index()
+            )
+            grouped_all_df["Label QC"] = grouped_all_df["Label QC"].apply(lambda x: ", ".join(sorted([str(item) for item in x if str(item).strip()])))
+            
+            # Tampilkan ringkasan untuk semua kode bahan
+            st.subheader("🧾 Ringkasan Label QC untuk Semua Kode Bahan")
+            st.dataframe(grouped_all_df)
+            
+            # Fitur Download Ringkasan untuk semua kode bahan
+            if not grouped_all_df.empty:
+                def to_excel(df):
+                    output = io.BytesIO()
+                    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                        df.to_excel(writer, index=False, sheet_name="Label QC")
+                    output.seek(0)
+                    return output
+                
+                excel_all_grouped = to_excel(grouped_all_df)
+                st.download_button(
+                    label="📥 Download Ringkasan Semua Label QC (Excel)",
+                    data=excel_all_grouped,
+                    file_name="ringkasan_semua_label_qc.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            
+            # Fitur filter untuk detail kode bahan tertentu (tetap seperti sebelumnya)
+            selected_kode = st.selectbox("🔍 Pilih Kode Bahan untuk Detail", kode_bahan_list)
 
             # Filter berdasarkan pasangan kode dan label yang sesuai
             hasil_data = []
@@ -52,54 +100,23 @@ def filter_labelqc():
                 for _, row in filtered_rows.iterrows():
                     hasil_data.append({
                         "Kode Bahan": selected_kode,
-                        "Label QC": row[label_col] if label_col in row else ""
+                        "Label QC": row[label_col] if pd.notna(row[label_col]) else ""
                     })
 
             hasil_df = pd.DataFrame(hasil_data)
 
-            st.subheader("🏷️ Label QC dari Kode Bahan Terpilih")
+            st.subheader(f"🏷️ Detail Label QC untuk Kode Bahan: {selected_kode}")
             st.dataframe(hasil_df)
 
             # Fitur Download Dataframe ke Excel
             if not hasil_df.empty:
-                # Fungsi untuk mengunduh hasil dalam format Excel
-                def to_excel(df):
-                    output = io.BytesIO()
-                    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                        df.to_excel(writer, index=False, sheet_name="Label QC")
-                    output.seek(0)
-                    return output
-
                 excel_data = to_excel(hasil_df)
                 st.download_button(
-                    label="📥 Download Hasil Label QC (Excel)",
+                    label="📥 Download Detail Label QC (Excel)",
                     data=excel_data,
-                    file_name="hasil_label_qc.xlsx",
+                    file_name=f"detail_label_qc_{selected_kode}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
-
-                # Tampilkan versi ringkas: 1 kode bahan -> gabungan label QC unik
-                grouped_df = (
-                    hasil_df
-                    .drop_duplicates()
-                    .groupby("Kode Bahan")["Label QC"]
-                    .unique()
-                    .reset_index()
-                )
-                grouped_df["Label QC"] = grouped_df["Label QC"].apply(lambda x: ", ".join(sorted(x)))
-
-                st.subheader("🧾 Ringkasan Label QC per Kode Bahan")
-                st.dataframe(grouped_df)
-
-                # Fitur Download Ringkasan
-                if not grouped_df.empty:
-                    excel_grouped = to_excel(grouped_df)
-                    st.download_button(
-                        label="📥 Download Ringkasan Label QC (Excel)",
-                        data=excel_grouped,
-                        file_name="ringkasan_label_qc.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
 
         except Exception as e:
             st.error(f"❌ Terjadi kesalahan saat membaca file: {e}")
