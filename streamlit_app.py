@@ -28,14 +28,14 @@ if menu == "In Process Control (IPC)":
 
 if menu == "CPP BAHAN":
     # Submenu untuk CPP BAHAN
-    submenu = st.sidebar.radio("Submenu CPP Bahan", ["Upload File", "Ekstrak Data Batch"])
+    submenu = st.sidebar.radio("Submenu CPP Bahan", ["FILTER CPP BAHAN", "FILTER LABEL QC"])
 
     if submenu == "FILTER CPP BAHAN":
         st.title("📤 Upload File CPP")
         # Di sini bisa kamu panggil fungsi atau tulis langsung logika upload file
         tampilkan_bahan()
 
-    elif submenu == "FILTERS LABEL QC":
+    elif submenu == "FILTER LABEL QC":
         st.title("🔍 FILTER LABEL QC")
         # Fungsi ekstraksi data batch, bisa dipisah atau gabung di tampilkan_bahan()
         filter_labelqc()
