@@ -16,6 +16,7 @@ from utils import combine_duplicate_columns
 from header_parser import extract_multi_level_headers
 from ipc_page import tampilkan_ipc
 from bahan_page import tampilkan_bahan
+from filter_labelqc import filter_labelqc
 
 # --- Navigasi
 menu = st.sidebar.radio("Navigasi", ["Critical Quality Attribute (CQA)", "In Process Control (IPC)","CPP BAHAN"])
