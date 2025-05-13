@@ -550,7 +550,7 @@ def tampilkan_obat():
     import os
     
     st.title("Halaman Produk Obat")
-    st.write("Ini adalah tampilan khusus Mas Lutfan.")
+    st.write("Ini adalah halaman CPP OBAT")
     
     # Tampilkan tab untuk memilih mode operasi
     tab1, tab2, tab3 = st.tabs(["Pengelompokan Batch dengan Kode Mesin", "Pengelompokan Batch dengan Nama Mesin", "Pisahkan Data Grinding per Mesin"])
