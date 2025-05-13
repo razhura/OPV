@@ -4,7 +4,4 @@ openpyxl
 matplotlib
 odfpy
 plotly
-base64
-json
-os
 numpy
