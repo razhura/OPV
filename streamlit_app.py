@@ -42,6 +42,11 @@ if menu == "CPP BAHAN":
 
     st.stop()
 
+
+if menu == "Produk Obat Test CPP Konimax": 
+    tampilkan_obat()  # ← tampilkan konten halaman Obat dari produk_obat.py
+    st.stop()
+    
 # Jika tidak pilih IPC atau CPP BAHAN, jalankan halaman CQA
 st.title("OPV KONIMEX V3.0")
 st.header("📊 Critical Quality Attribute (CQA)")
