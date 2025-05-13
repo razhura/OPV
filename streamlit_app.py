@@ -27,9 +27,8 @@ if menu == "In Process Control (IPC)":
     st.stop()
 
 if menu == "Produk Obat Test CPP Konimax": 
-    tampilkan_obat()  # ← tampilkan konten halaman Obat dari produk_obat.py
+    tampilkan_obat() 
     st.stop()
-
 
 if menu == "CPP BAHAN":
     # Submenu untuk CPP BAHAN
@@ -45,11 +44,6 @@ if menu == "CPP BAHAN":
         # Fungsi ekstraksi data batch, bisa dipisah atau gabung di tampilkan_bahan()
         filter_labelqc()
 
-    st.stop()
-
-
-if menu == "Produk Obat Test CPP Konimax": 
-    tampilkan_obat()  # ← tampilkan konten halaman Obat dari produk_obat.py
     st.stop()
     
 # Jika tidak pilih IPC atau CPP BAHAN, jalankan halaman CQA
