@@ -19,31 +19,31 @@ from bahan_page import tampilkan_bahan
 from filter_labelqc import filter_labelqc
 
 # --- Navigasi
-menu = st.sidebar.radio("Navigasi", ["Critical Quality Attribute (CQA)", "In Process Control (IPC)","CPP BAHAN"])
+menu = st.sidebar.radio("Navigasi", ["Critical Quality Attribute (CQA)", "In Process Control (IPC)", "CPP BAHAN"])
 
 # --- Logika Halaman
 if menu == "In Process Control (IPC)":
-    tampilkan_ipc()  # ← tampilkan konten halaman IPC dari ipc_page.py
+    tampilkan_ipc()
     st.stop()
 
 if menu == "CPP BAHAN":
     # Submenu untuk CPP BAHAN
-    submenu = st.sidebar.radio("Submenu CPP Bahan", ["FILTER CPP BAHAN", "FILTER LABEL QC"])
+    submenu = st.sidebar.radio("Submenu CPP Bahan", ["Upload File", "Ekstrak Data Batch"])
 
-    if submenu == "FILTER CPP BAHAN":
+    if submenu == "Upload File":
         st.title("📤 Upload File CPP")
         # Di sini bisa kamu panggil fungsi atau tulis langsung logika upload file
         tampilkan_bahan()
 
-    elif submenu == "FILTER LABEL QC":
+    elif submenu == "Ekstrak Data Batch":
         st.title("🔍 FILTER LABEL QC")
         # Fungsi ekstraksi data batch, bisa dipisah atau gabung di tampilkan_bahan()
         filter_labelqc()
 
     st.stop()
 
-# Jika QCA, maka lanjutkan halaman QCA seperti sebelumnya...
-st.title("OPV KONIMEX V3.5")
+# Jika tidak pilih IPC atau CPP BAHAN, jalankan halaman CQA
+st.title("OPV KONIMEX V3.0")
 st.header("📊 Critical Quality Attribute (CQA)")
 
 # Fungsi parsing header bertingkat dari baris 4-6
@@ -239,36 +239,70 @@ if uploaded_file is not None:
             # Statistik numerik sebagai baris tambahan
             numeric_cols = df_filtered.select_dtypes(include=np.number).columns.tolist()
             if numeric_cols:
-                stats = df_filtered[numeric_cols].agg(['min', 'max', 'mean', 'std'])
+                # Tambahkan baris statistik ke dataframe
+                stats_rows = []
                 
-                # Tambahkan handling untuk menghindari division by zero
-                try:
-                    # Hitung RSD dengan penanganan nilai 0 pada mean
-                    rsd = pd.Series(index=stats.columns)
-                    for col in stats.columns:
-                        if stats.loc['mean', col] != 0:  # Hindari division by zero
-                            rsd[col] = (stats.loc['std', col] / stats.loc['mean', col]) * 100
+                # Simpan data asli
+                df_data = df_filtered.copy()
+                
+                # Hitung dan tambahkan statistik sebagai baris baru
+                min_row = {}
+                max_row = {}
+                mean_row = {}
+                sd_row = {}
+                rsd_row = {}
+                
+                if "Nomor Batch" in df_filtered.columns:
+                    min_row["Nomor Batch"] = "Min"
+                    max_row["Nomor Batch"] = "Max"
+                    mean_row["Nomor Batch"] = "Mean"
+                    sd_row["Nomor Batch"] = "SD"
+                    rsd_row["Nomor Batch"] = "RSD"
+                
+                for col in df_filtered.columns:
+                    if col in numeric_cols:
+                        min_val = df_filtered[col].min()
+                        max_val = df_filtered[col].max()
+                        mean_val = df_filtered[col].mean()
+                        std_val = df_filtered[col].std()
+                        
+                        min_row[col] = min_val
+                        max_row[col] = max_val
+                        mean_row[col] = mean_val
+                        sd_row[col] = std_val
+                        
+                        # Hitung RSD dengan penanganan nilai 0 pada mean
+                        if mean_val != 0:
+                            rsd_row[col] = (std_val / mean_val) * 100
                         else:
-                            rsd[col] = pd.NA  # Jika mean = 0, set RSD ke NA
-                    
-                    # Tambahkan RSD ke stats
-                    stats.loc['RSD'] = rsd
-                except Exception as e:
-                    st.warning(f"Tidak dapat menghitung RSD: {str(e)}")
+                            rsd_row[col] = pd.NA
+                    elif col != "Nomor Batch":
+                        min_row[col] = ""
+                        max_row[col] = ""
+                        mean_row[col] = ""
+                        sd_row[col] = ""
+                        rsd_row[col] = ""
                 
-                stats.index = ['Min', 'Max', 'Mean', 'SD', 'RSD']
-
-                # Gabungkan ke df_filtered sebagai baris
-                df_combined = pd.concat([df_filtered, stats.T.reset_index().T], ignore_index=False)
+                # Tambahkan baris statistik ke dataframe
+                df_stats = pd.DataFrame([min_row, max_row, mean_row, sd_row, rsd_row])
+                
+                # Gabungkan data asli dengan statistik
+                df_combined = pd.concat([df_data, df_stats], ignore_index=True)
+                
+                st.subheader("📄 Data Hasil Pemilihan Kolom" + (" dan Pembersihan Data" if enable_drop_empty else ""))
+                st.dataframe(df_combined)
+                
+                # Ekspor data gabungan
+                export_link_filtered = export_dataframe(df_combined, "data_filtered")
+                st.markdown(export_link_filtered, unsafe_allow_html=True)
             else:
-                df_combined = df_filtered
-        
-            st.subheader("📄 Data Hasil Pemilihan Kolom" + (" dan Pembersihan Data" if enable_drop_empty else ""))
-            st.dataframe(df_combined)
-        
-            # Ekspor
-            export_link_filtered = export_dataframe(df_combined, "data_filtered")
-            st.markdown(export_link_filtered, unsafe_allow_html=True)
+                # Jika tidak ada kolom numerik, tampilkan data biasa
+                st.subheader("📄 Data Hasil Pemilihan Kolom" + (" dan Pembersihan Data" if enable_drop_empty else ""))
+                st.dataframe(df_filtered)
+                
+                # Ekspor data biasa
+                export_link_filtered = export_dataframe(df_filtered, "data_filtered")
+                st.markdown(export_link_filtered, unsafe_allow_html=True)
         
         else:
             st.info("Silakan pilih minimal satu kolom untuk ditampilkan.")
