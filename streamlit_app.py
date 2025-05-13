@@ -26,6 +26,11 @@ if menu == "In Process Control (IPC)":
     tampilkan_ipc()
     st.stop()
 
+if menu == "Produk Obat Test CPP Konimax": 
+    tampilkan_obat()  # ← tampilkan konten halaman Obat dari produk_obat.py
+    st.stop()
+
+
 if menu == "CPP BAHAN":
     # Submenu untuk CPP BAHAN
     submenu = st.sidebar.radio("Submenu CPP Bahan", ["Upload File", "Ekstrak Data Batch"])
