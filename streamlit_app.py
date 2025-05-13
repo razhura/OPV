@@ -7,7 +7,10 @@ import base64
 import matplotlib.pyplot as plt
 from openpyxl import load_workbook
 
-# --- SET PAGE CONFIG
+# --- SET PAGE CONFIGimport base64
+import json
+import os
+import numpy as npna
 st.set_page_config(page_title="Excel CQA Parser", layout="wide")
 
 # Modul internal
@@ -19,15 +22,11 @@ from bahan_page import tampilkan_bahan
 from filter_labelqc import filter_labelqc
 
 # --- Navigasi
-menu = st.sidebar.radio("Navigasi", ["Critical Quality Attribute (CQA)", "In Process Control (IPC)", "CPP BAHAN"])
+menu = st.sidebar.radio("Navigasi", ["Critical Quality Attribute (CQA)", "In Process Control (IPC)", "CPP BAHAN", "Produk Obat Test CPP Konimax"])
 
 # --- Logika Halaman
 if menu == "In Process Control (IPC)":
     tampilkan_ipc()
-    st.stop()
-
-if menu == "Produk Obat Test CPP Konimax": 
-    tampilkan_obat() 
     st.stop()
 
 if menu == "CPP BAHAN":
@@ -44,6 +43,10 @@ if menu == "CPP BAHAN":
         # Fungsi ekstraksi data batch, bisa dipisah atau gabung di tampilkan_bahan()
         filter_labelqc()
 
+    st.stop()
+
+if menu == "Produk Obat Test CPP Konimax": 
+    tampilkan_obat() 
     st.stop()
     
 # Jika tidak pilih IPC atau CPP BAHAN, jalankan halaman CQA
