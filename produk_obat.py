@@ -158,9 +158,9 @@ def parse_kode_mesin_Vietnam(file):
         # Dictionary untuk menyimpan batch dari kolom A dengan label tetap "Olsa Mames"
         vietnam_batches = []
         
-        # Loop melalui baris data mulai dari indeks 1 (baris kedua)
-        # untuk mengabaikan baris pertama (indeks 0)
-        for i in range(1, len(original_df)):
+        # Loop melalui baris data mulai dari indeks 2 (baris ketiga)
+        # untuk mengabaikan baris header (indeks 0) dan row 1 (indeks 1)
+        for i in range(2, len(original_df)):
             # Ambil nomor batch dari kolom A (index 0)
             batch = str(original_df.iloc[i, 0]).strip()
             
@@ -197,10 +197,6 @@ def parse_kode_mesin_Vietnam(file):
         return result_df
     except Exception as e:
         st.error(f"Error saat memproses file Vietnam: {str(e)}")
-        return None
-    except Exception as e:
-        st.error(f"Gagal parsing file Vietnam: {str(e)}")
-        st.exception(e)  # Tampilkan detail error untuk debugging
         return None
 
 def parse_nama_mesin_tab2(file):
