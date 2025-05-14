@@ -212,6 +212,7 @@ def parse_nama_mesin_tab2(file):
         import re
         import datetime
         import numpy as np
+        import os  # Added missing import
 
         df = pd.read_excel(file, header=None)
 
@@ -314,6 +315,9 @@ def parse_nama_mesin_tab2(file):
         st.write("🔍 Ringkasan Nama Mesin yang Ditemukan:")
         st.dataframe(summary_df)
 
+        # Initialize result_df to None at the beginning
+        result_df = None
+        
         if 'tab1_json' not in st.session_state:
             st.warning("Data batch dari Tab 1 belum tersedia. Silakan proses data di Tab 1 terlebih dahulu.")
             st.session_state['filtered_nama_mesin_map'] = mesin_batch_groups
@@ -391,13 +395,14 @@ def parse_nama_mesin_tab2(file):
             except Exception as e:
                 st.error(f"Gagal menyimpan referensi: {str(e)}")
 
+        # Return result_df (which may still be None in some cases, but is now initialized)
         return result_df
 
     except Exception as e:
         st.error(f"Gagal parsing file: {str(e)}")
         st.exception(e)
-        return None
-
+        return None  # Added explicit return None for exception case
+        
 def save_kode_mesin_batch_reference(mesin_map, filename="kode_mesin_batch_reference.json"):
     """
     Menyimpan referensi batch-kode mesin ke file JSON
@@ -436,7 +441,6 @@ def load_mesin_batch_reference(filename="mesin_batch_reference.json"):
     except Exception as e:
         st.error(f"Gagal memuat referensi batch-mesin: {str(e)}")
         return {}
-
 
 def parse_batch_only_file(file):
     """
@@ -551,7 +555,7 @@ def tampilkan_obat():
     import os
     
     st.title("Halaman Produk Obat")
-    st.write("Ini adalah tampilan khusus Mas Lutfan.")
+    st.write("Ini adalah halaman CPP OBAT")
     
     # Tampilkan tab untuk memilih mode operasi
     tab1, tab2, tab3 = st.tabs(["Pengelompokan Batch dengan Kode Mesin", "Pengelompokan Batch dengan Nama Mesin", "Pisahkan Data Grinding per Mesin"])
