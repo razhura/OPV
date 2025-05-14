@@ -158,9 +158,9 @@ def parse_kode_mesin_Vietnam(file):
         # Dictionary untuk menyimpan batch dari kolom A dengan label tetap "Olsa Mames"
         vietnam_batches = []
         
-        # Loop melalui baris data mulai dari indeks 2 (baris ketiga)
-        # untuk mengabaikan baris header (indeks 0) dan row 1 (indeks 1)
-        for i in range(2, len(original_df)):
+        # Loop melalui baris data mulai dari indeks 1 (baris kedua)
+        # untuk mengabaikan baris pertama (indeks 0)
+        for i in range(1, len(original_df)):
             # Ambil nomor batch dari kolom A (index 0)
             batch = str(original_df.iloc[i, 0]).strip()
             
@@ -198,6 +198,10 @@ def parse_kode_mesin_Vietnam(file):
     except Exception as e:
         st.error(f"Error saat memproses file Vietnam: {str(e)}")
         return None
+    except Exception as e:
+        st.error(f"Gagal parsing file Vietnam: {str(e)}")
+        st.exception(e)  # Tampilkan detail error untuk debugging
+        return None
 
 def parse_nama_mesin_tab2(file):
     try:
@@ -208,7 +212,6 @@ def parse_nama_mesin_tab2(file):
         import re
         import datetime
         import numpy as np
-        import os  # Added missing import
 
         df = pd.read_excel(file, header=None)
 
@@ -311,9 +314,6 @@ def parse_nama_mesin_tab2(file):
         st.write("🔍 Ringkasan Nama Mesin yang Ditemukan:")
         st.dataframe(summary_df)
 
-        # Initialize result_df to None at the beginning
-        result_df = None
-        
         if 'tab1_json' not in st.session_state:
             st.warning("Data batch dari Tab 1 belum tersedia. Silakan proses data di Tab 1 terlebih dahulu.")
             st.session_state['filtered_nama_mesin_map'] = mesin_batch_groups
@@ -391,18 +391,16 @@ def parse_nama_mesin_tab2(file):
             except Exception as e:
                 st.error(f"Gagal menyimpan referensi: {str(e)}")
 
-        # Return result_df (which may still be None in some cases, but is now initialized)
         return result_df
 
     except Exception as e:
         st.error(f"Gagal parsing file: {str(e)}")
         st.exception(e)
-        return None  # Added explicit return None for exception case
-        
+        return None
+
 def save_kode_mesin_batch_reference(mesin_map, filename="kode_mesin_batch_reference.json"):
     """
-    Menyimpan referensi batch-kode mesin ke dictionary session state
-    dan opsi untuk menyimpan ke file JSON
+    Menyimpan referensi batch-kode mesin ke file JSON
     """
     try:
         # Convert dictionary values (lists) to set for unique batch entries
@@ -411,22 +409,11 @@ def save_kode_mesin_batch_reference(mesin_map, filename="kode_mesin_batch_refere
             # Filter out None values and ensure unique entries
             reference_data[mesin] = list(set([b for b in batches if b is not None]))
         
-        # Store reference data in session state using a unique key
-        if 'user_references' not in st.session_state:
-            st.session_state.user_references = {}
+        # Save reference data to JSON file
+        with open(filename, 'w') as f:
+            json.dump(reference_data, f)
         
-        # Use a unique key for this reference data
-        reference_key = filename.replace('.json', '')
-        st.session_state.user_references[reference_key] = reference_data
-        
-        # Save reference data to JSON file only if requested
-        if st.checkbox("Simpan juga ke file lokal?", value=False):
-            with open(filename, 'w') as f:
-                json.dump(reference_data, f)
-            st.success(f"Referensi batch-kode mesin berhasil disimpan ke {filename}")
-        else:
-            st.success(f"Referensi batch-kode mesin berhasil disimpan ke session state")
-            
+        st.success(f"Referensi batch-kode mesin berhasil disimpan ke {filename}")
         return True
     except Exception as e:
         st.error(f"Gagal menyimpan referensi batch-kode mesin: {str(e)}")
@@ -434,36 +421,22 @@ def save_kode_mesin_batch_reference(mesin_map, filename="kode_mesin_batch_refere
 
 def load_mesin_batch_reference(filename="mesin_batch_reference.json"):
     """
-    Memuat referensi batch-mesin dari session state atau file JSON
+    Memuat referensi batch-mesin dari file JSON
     """
     try:
-        # Check if reference exists in session state first
-        if 'user_references' in st.session_state:
-            reference_key = filename.replace('.json', '')
-            if reference_key in st.session_state.user_references:
-                st.success(f"Referensi batch-mesin berhasil dimuat dari session state")
-                return st.session_state.user_references[reference_key]
-        
-        # If not in session state, try to load from file if it exists
-        if os.path.exists(filename):
-            with open(filename, 'r') as f:
-                reference_data = json.load(f)
-            
-            # Store in session state for future use
-            if 'user_references' not in st.session_state:
-                st.session_state.user_references = {}
-            
-            reference_key = filename.replace('.json', '')
-            st.session_state.user_references[reference_key] = reference_data
-            
-            st.success(f"Referensi batch-mesin berhasil dimuat dari file {filename}")
-            return reference_data
-        else:
-            st.warning(f"Referensi {filename} tidak ditemukan di sistem file")
+        if not os.path.exists(filename):
+            st.warning(f"File referensi {filename} tidak ditemukan")
             return {}
+        
+        with open(filename, 'r') as f:
+            reference_data = json.load(f)
+        
+        st.success(f"Referensi batch-mesin berhasil dimuat dari {filename}")
+        return reference_data
     except Exception as e:
         st.error(f"Gagal memuat referensi batch-mesin: {str(e)}")
         return {}
+
 
 def parse_batch_only_file(file):
     """
@@ -578,7 +551,7 @@ def tampilkan_obat():
     import os
     
     st.title("Halaman Produk Obat")
-    st.write("Ini adalah halaman CPP OBAT")
+    st.write("Ini adalah tampilan khusus Mas Lutfan.")
     
     # Tampilkan tab untuk memilih mode operasi
     tab1, tab2, tab3 = st.tabs(["Pengelompokan Batch dengan Kode Mesin", "Pengelompokan Batch dengan Nama Mesin", "Pisahkan Data Grinding per Mesin"])
