@@ -405,7 +405,8 @@ def parse_nama_mesin_tab2(file):
         
 def save_kode_mesin_batch_reference(mesin_map, filename="kode_mesin_batch_reference.json"):
     """
-    Menyimpan referensi batch-kode mesin ke file JSON
+    Menyimpan referensi batch-kode mesin ke dictionary session state
+    dan opsi untuk menyimpan ke file JSON
     """
     try:
         # Convert dictionary values (lists) to set for unique batch entries
@@ -414,11 +415,22 @@ def save_kode_mesin_batch_reference(mesin_map, filename="kode_mesin_batch_refere
             # Filter out None values and ensure unique entries
             reference_data[mesin] = list(set([b for b in batches if b is not None]))
         
-        # Save reference data to JSON file
-        with open(filename, 'w') as f:
-            json.dump(reference_data, f)
+        # Store reference data in session state using a unique key
+        if 'user_references' not in st.session_state:
+            st.session_state.user_references = {}
         
-        st.success(f"Referensi batch-kode mesin berhasil disimpan ke {filename}")
+        # Use a unique key for this reference data
+        reference_key = filename.replace('.json', '')
+        st.session_state.user_references[reference_key] = reference_data
+        
+        # Save reference data to JSON file only if requested
+        if st.checkbox("Simpan juga ke file lokal?", value=False):
+            with open(filename, 'w') as f:
+                json.dump(reference_data, f)
+            st.success(f"Referensi batch-kode mesin berhasil disimpan ke {filename}")
+        else:
+            st.success(f"Referensi batch-kode mesin berhasil disimpan ke session state")
+            
         return True
     except Exception as e:
         st.error(f"Gagal menyimpan referensi batch-kode mesin: {str(e)}")
@@ -426,18 +438,33 @@ def save_kode_mesin_batch_reference(mesin_map, filename="kode_mesin_batch_refere
 
 def load_mesin_batch_reference(filename="mesin_batch_reference.json"):
     """
-    Memuat referensi batch-mesin dari file JSON
+    Memuat referensi batch-mesin dari session state atau file JSON
     """
     try:
-        if not os.path.exists(filename):
-            st.warning(f"File referensi {filename} tidak ditemukan")
+        # Check if reference exists in session state first
+        if 'user_references' in st.session_state:
+            reference_key = filename.replace('.json', '')
+            if reference_key in st.session_state.user_references:
+                st.success(f"Referensi batch-mesin berhasil dimuat dari session state")
+                return st.session_state.user_references[reference_key]
+        
+        # If not in session state, try to load from file if it exists
+        if os.path.exists(filename):
+            with open(filename, 'r') as f:
+                reference_data = json.load(f)
+            
+            # Store in session state for future use
+            if 'user_references' not in st.session_state:
+                st.session_state.user_references = {}
+            
+            reference_key = filename.replace('.json', '')
+            st.session_state.user_references[reference_key] = reference_data
+            
+            st.success(f"Referensi batch-mesin berhasil dimuat dari file {filename}")
+            return reference_data
+        else:
+            st.warning(f"Referensi {filename} tidak ditemukan di sistem file")
             return {}
-        
-        with open(filename, 'r') as f:
-            reference_data = json.load(f)
-        
-        st.success(f"Referensi batch-mesin berhasil dimuat dari {filename}")
-        return reference_data
     except Exception as e:
         st.error(f"Gagal memuat referensi batch-mesin: {str(e)}")
         return {}
