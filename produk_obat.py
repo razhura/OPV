@@ -193,16 +193,62 @@ def parse_kode_mesin_Vietnam(file):
         st.session_state.original_tab1_json = json.dumps(mesin_map)
         st.session_state.tab1_json = json.dumps(mesin_map)
         
-        # Return DataFrame untuk tampilan
+        # --- BAGIAN FILTERING DAN PENGHAPUSAN --- #
+        st.write("### Filter Batch Berdasarkan Kode Mesin")
+        
+        # Pilih mesin yang ingin disimpan batchnya
+        mesin_to_keep = st.multiselect(
+            "Pilih kode mesin yang batchnya ingin disimpan:",
+            options=list(mesin_map.keys())
+        )
+        
+        # Kumpulkan batch yang akan disimpan
+        batches_to_keep = []
+        for mesin in mesin_to_keep:
+            batches_to_keep.extend([b for b in mesin_map[mesin] if b is not None])
+            
+        # Terapkan filter jika tombol diklik dan ada mesin yang dipilih
+        if mesin_to_keep and st.button("Terapkan Filter"):
+            if not batches_to_keep:
+                st.warning("Tidak ada batch yang dapat disimpan dari mesin yang dipilih.")
+            else:
+                # Gunakan result_df sebagai sumber untuk filtering
+                filtered_rows = []
+                for i in range(len(original_df)):
+                    if i == 0:  # Pertahankan header
+                        filtered_rows.append(original_df.iloc[i])
+                    else:
+                        batch = str(original_df.iloc[i, 0]).strip()
+                        if batch in batches_to_keep or batch == "" or pd.isna(batch) or batch.upper() == "NAN":
+                            filtered_rows.append(original_df.iloc[i])
+            
+                # Buat DataFrame hasil filter
+                filtered_df = pd.DataFrame(filtered_rows)
+                
+                # Tampilkan hasil
+                st.write(f"### Hasil Filter (Menyimpan {len(batches_to_keep)} batch)")
+                st.write(f"Jumlah baris sebelum filter: {len(original_df)}")
+                st.write(f"Jumlah baris setelah filter: {len(filtered_df)}")
+                st.dataframe(filtered_df)
+                
+                # Update session state dengan data yang telah difilter
+                st.session_state.filtered_df = filtered_df
+                
+                # Buat dictionary baru hanya dengan mesin yang dipilih
+                filtered_mesin_map = {}
+                for mesin in mesin_to_keep:
+                    filtered_mesin_map[mesin] = [b for b in mesin_map[mesin] if b is not None]
+                    
+                # Update session state untuk tab Vietnam
+                st.session_state.filtered_tab1_json = json.dumps(filtered_mesin_map)
+                
+                return filtered_df
+            
+        # Return DataFrame asli jika tidak ada filtering
         return result_df
     except Exception as e:
         st.error(f"Error saat memproses file Vietnam: {str(e)}")
         return None
-    except Exception as e:
-        st.error(f"Gagal parsing file Vietnam: {str(e)}")
-        st.exception(e)  # Tampilkan detail error untuk debugging
-        return None
-
 def parse_nama_mesin_tab2(file):
     try:
         from difflib import SequenceMatcher
