@@ -147,40 +147,85 @@ def simplify_headers(df):
     return df
 
 
-def create_filtered_table(df, selected_index):
-    # Kolom yang akan dipertahankan
-    columns_to_keep = [
-        'Nomor Batch', 
-        'No. Order Produksi', 
-        'Jalur', 
-        f'Nama Bahan {selected_index}',
-        f'Kode Bahan {selected_index}',
-        f'Kuantiti > Terpakai {selected_index}',
-        f'Kuantiti > Rusak {selected_index}',
-        f'No Lot Supplier {selected_index}',
-        f'Label QC {selected_index}'
-    ]
+def create_filtered_table_by_name(df, selected_name):
+    # Temukan semua kolom "Nama Bahan" di dataframe
+    nama_bahan_cols = [col for col in df.columns if col.startswith('Nama Bahan ')]
     
-    # Filter kolom yang ada di dataframe
-    available_columns = [col for col in columns_to_keep if col in df.columns]
+    # Dapatkan indeks yang sesuai dengan nama bahan yang dipilih
+    filtered_indices = []
+    for col in nama_bahan_cols:
+        # Dapatkan indeks dari nama kolom, misalnya "Nama Bahan 1" → 1
+        index = int(col.split()[-1])
+        
+        # Periksa setiap baris untuk nilai yang cocok dengan nama bahan yang dipilih
+        mask = df[col] == selected_name
+        # Jika ada baris yang cocok, tambahkan indeks ini ke daftar
+        if mask.any():
+            filtered_indices.append(index)
     
-    # Buat dataframe baru dengan kolom yang tersedia
-    filtered_df = df[available_columns].copy()
+    # Gabungkan semua dataframe terfilter untuk setiap indeks yang ditemukan
+    filtered_dfs = []
+    for index in filtered_indices:
+        # Kolom yang akan dipertahankan
+        columns_to_keep = [
+            'Nomor Batch', 
+            'No. Order Produksi', 
+            'Jalur', 
+            f'Nama Bahan {index}',
+            f'Kode Bahan {index}',
+            f'Kuantiti > Terpakai {index}',
+            f'Kuantiti > Rusak {index}',
+            f'No Lot Supplier {index}',
+            f'Label QC {index}'
+        ]
+        
+        # Filter kolom yang ada di dataframe
+        available_columns = [col for col in columns_to_keep if col in df.columns]
+        
+        # Buat dataframe baru dengan kolom yang tersedia
+        temp_df = df[available_columns].copy()
+        
+        # Filter baris dimana nama bahan sesuai dengan yang dipilih
+        temp_df = temp_df[temp_df[f'Nama Bahan {index}'] == selected_name]
+        
+        # Ganti nama kolom untuk menghilangkan nomor indeks
+        new_column_names = {}
+        for col in temp_df.columns:
+            if col not in ['Nomor Batch', 'No. Order Produksi', 'Jalur']:
+                new_name = re.sub(r"\s\d+$", "", col)
+                new_column_names[col] = new_name
+        
+        # Terapkan perubahan nama kolom
+        temp_df = temp_df.rename(columns=new_column_names)
+        
+        # Tambahkan ke daftar dataframe terfilter
+        if not temp_df.empty:
+            filtered_dfs.append(temp_df)
     
-    # Ganti nama kolom untuk menghilangkan nomor indeks
-    new_column_names = {}
-    for col in filtered_df.columns:
-        if col not in ['Nomor Batch', 'No. Order Produksi', 'Jalur']:
-            new_name = re.sub(r"\s\d+$", "", col)
-            new_column_names[col] = new_name
+    # Gabungkan semua dataframe terfilter
+    if filtered_dfs:
+        return pd.concat(filtered_dfs, ignore_index=True)
+    else:
+        # Jika tidak ada yang cocok, kembalikan dataframe kosong dengan kolom yang sesuai
+        return pd.DataFrame(columns=['Nomor Batch', 'No. Order Produksi', 'Jalur', 
+                                    'Nama Bahan', 'Kode Bahan', 'Kuantiti > Terpakai', 
+                                    'Kuantiti > Rusak', 'No Lot Supplier', 'Label QC'])
+
+
+def get_unique_bahan_names(df):
+    # Temukan semua kolom "Nama Bahan" di dataframe
+    nama_bahan_cols = [col for col in df.columns if col.startswith('Nama Bahan ')]
     
-    # Terapkan perubahan nama kolom
-    filtered_df = filtered_df.rename(columns=new_column_names)
+    # Kumpulkan semua nilai unik dari kolom-kolom tersebut
+    unique_names = set()
+    for col in nama_bahan_cols:
+        # Hanya tambahkan nilai yang tidak null/NaN dan bukan string kosong
+        values = df[col].dropna()
+        values = values[values != '']
+        unique_names.update(values)
     
-    # Hapus baris yang nama bahannya kosong
-    filtered_df = filtered_df[filtered_df['Nama Bahan'].notna() & (filtered_df['Nama Bahan'] != '')]
-    
-    return filtered_df
+    # Kembalikan sebagai list yang diurutkan
+    return sorted(list(unique_names))
 
 
 def tampilkan_bahan():
@@ -206,14 +251,10 @@ def tampilkan_bahan():
 
                     st.session_state.result_df = result_df  # Simpan hasil ke session state
                     st.session_state.processed = True  # Tandai bahwa data telah diproses
-
-                    # Cari berapa banyak kolom "Nama Bahan" yang ada
-                    nama_bahan_columns = [col for col in result_df.columns if "Nama Bahan" in col]
                     
-                    # Siapkan opsi untuk memilih indeks Nama Bahan
-                    available_indices = [int(col.split()[-1]) for col in nama_bahan_columns]
-                    
-                    st.session_state.available_indices = available_indices  # Simpan indeks yang tersedia
+                    # Dapatkan daftar unik nama bahan
+                    unique_bahan_names = get_unique_bahan_names(result_df)
+                    st.session_state.unique_bahan_names = unique_bahan_names
 
                     st.subheader("🔢 Hasil Ekstraksi Data Batch")
                     st.dataframe(result_df)
@@ -246,60 +287,65 @@ def tampilkan_bahan():
             if 'processed' in st.session_state and st.session_state.processed:
                 st.subheader("🔍 Filter Data Berdasarkan Nama Bahan")
                 
-                # Dapatkan indeks yang tersedia
-                available_indices = st.session_state.available_indices
+                # Dapatkan daftar unik nama bahan
+                unique_bahan_names = st.session_state.unique_bahan_names
                 
                 # Tambahkan tombol "Pilih Semua"
                 col1, col2 = st.columns([1, 4])
                 with col1:
                     if st.button("Pilih Semua"):
-                        st.session_state.selected_indices = available_indices
+                        st.session_state.selected_bahan_names = unique_bahan_names
                 
                 # Siapkan multiselect dengan default dari session state jika ada
-                if 'selected_indices' not in st.session_state:
-                    st.session_state.selected_indices = []
+                if 'selected_bahan_names' not in st.session_state:
+                    st.session_state.selected_bahan_names = []
                 
                 with col2:
-                    selected_indices = st.multiselect(
-                        "Pilih Indeks Nama Bahan:",
-                        available_indices,
-                        default=st.session_state.selected_indices,
-                        format_func=lambda x: f"Nama Bahan {x}"
+                    selected_bahan_names = st.multiselect(
+                        "Pilih Nama Bahan:",
+                        unique_bahan_names,
+                        default=st.session_state.selected_bahan_names
                     )
-                    st.session_state.selected_indices = selected_indices
+                    st.session_state.selected_bahan_names = selected_bahan_names
                 
-                if selected_indices:
-                    # Untuk setiap indeks yang dipilih, buat tabel terfilter
-                    for selected_index in selected_indices:
-                        # Buat tabel terfilter untuk indeks yang dipilih
-                        filtered_df = create_filtered_table(st.session_state.result_df, selected_index)
+                if selected_bahan_names:
+                    # Untuk setiap nama bahan yang dipilih, buat tabel terfilter
+                    for selected_name in selected_bahan_names:
+                        # Buat tabel terfilter untuk nama bahan yang dipilih
+                        filtered_df = create_filtered_table_by_name(st.session_state.result_df, selected_name)
                         
-                        st.subheader(f"📊 Tabel Terfilter - Nama Bahan {selected_index}")
-                        st.dataframe(filtered_df)
+                        # Buat nama file yang aman untuk digunakan (tanpa karakter khusus)
+                        safe_filename = re.sub(r'[^\w\s-]', '', selected_name).strip().replace(' ', '_')
                         
-                        # Ekspor tabel terfilter ke CSV
-                        csv_filtered = filtered_df.to_csv(index=False)
-                        st.download_button(
-                            label=f"📥 Download Tabel Terfilter Nama Bahan {selected_index} (CSV)",
-                            data=csv_filtered,
-                            file_name=f"filtered_nama_bahan_{selected_index}.csv",
-                            mime="text/csv",
-                            key=f"csv_{selected_index}"  # Unique key untuk setiap button
-                        )
-                        
-                        # Ekspor tabel terfilter ke Excel
-                        buffer_filtered = io.BytesIO()
-                        with pd.ExcelWriter(buffer_filtered, engine='openpyxl') as writer:
-                            filtered_df.to_excel(writer, index=False, sheet_name=f'Nama Bahan {selected_index}')
-                        buffer_filtered.seek(0)
-                        
-                        st.download_button(
-                            label=f"📥 Download Tabel Terfilter Nama Bahan {selected_index} (Excel)",
-                            data=buffer_filtered,
-                            file_name=f"filtered_nama_bahan_{selected_index}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            key=f"excel_{selected_index}"  # Unique key untuk setiap button
-                        )
+                        if not filtered_df.empty:
+                            st.subheader(f"📊 Tabel Terfilter - {selected_name}")
+                            st.dataframe(filtered_df)
+                            
+                            # Ekspor tabel terfilter ke CSV
+                            csv_filtered = filtered_df.to_csv(index=False)
+                            st.download_button(
+                                label=f"📥 Download Tabel {selected_name} (CSV)",
+                                data=csv_filtered,
+                                file_name=f"filtered_{safe_filename}.csv",
+                                mime="text/csv",
+                                key=f"csv_{safe_filename}"  # Unique key untuk setiap button
+                            )
+                            
+                            # Ekspor tabel terfilter ke Excel
+                            buffer_filtered = io.BytesIO()
+                            with pd.ExcelWriter(buffer_filtered, engine='openpyxl') as writer:
+                                filtered_df.to_excel(writer, index=False, sheet_name='Filtered Data')
+                            buffer_filtered.seek(0)
+                            
+                            st.download_button(
+                                label=f"📥 Download Tabel {selected_name} (Excel)",
+                                data=buffer_filtered,
+                                file_name=f"filtered_{safe_filename}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key=f"excel_{safe_filename}"  # Unique key untuk setiap button
+                            )
+                        else:
+                            st.warning(f"Tidak ada data untuk {selected_name}")
                         
                         st.markdown("---")  # Separator between tables
 
