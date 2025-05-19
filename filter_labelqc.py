@@ -34,6 +34,22 @@ def filter_labelqc():
                     if label_qc_col in df_asli.columns:
                         kode_bahan_pairs.append((col, label_qc_col))
 
+            # Cari kolom No Batch jika ada
+            batch_cols = []
+            for col in df_asli.columns:
+                if "Batch" in col or "No Batch" in col or "Nomor Batch" in col:
+                    batch_cols.append(col)
+
+            # Jika tidak ada kolom batch yang spesifik, tanyakan ke pengguna
+            if not batch_cols:
+                st.warning("⚠️ Kolom Batch tidak ditemukan secara otomatis.")
+                all_cols = list(df_asli.columns)
+                batch_cols = st.multiselect(
+                    "Pilih kolom yang berisi informasi Batch:", 
+                    all_cols,
+                    key="batch_column_selector"
+                )
+
             # Gabungkan semua kode bahan menjadi satu list unik
             all_kode_bahan = pd.Series(dtype=str)
             for kode_col, _ in kode_bahan_pairs:
@@ -47,11 +63,13 @@ def filter_labelqc():
             # Buat dataframe yang berisi semua pasangan Kode Bahan dan Label QC
             all_data = []
             for kode_col, label_col in kode_bahan_pairs:
-                valid_rows = df_asli[[kode_col, label_col]].dropna(subset=[kode_col])
+                valid_rows = df_asli[[kode_col, label_col] + batch_cols].dropna(subset=[kode_col])
                 for _, row in valid_rows.iterrows():
+                    batch_info = {batch_col: row[batch_col] if pd.notna(row[batch_col]) else "" for batch_col in batch_cols}
                     all_data.append({
                         "Kode Bahan": str(row[kode_col]).strip(),
-                        "Label QC": row[label_col] if pd.notna(row[label_col]) else ""
+                        "Label QC": row[label_col] if pd.notna(row[label_col]) else "",
+                        **batch_info
                     })
             
             # Buat dataframe untuk semua data
@@ -88,8 +106,9 @@ def filter_labelqc():
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
             
-            # Fitur filter untuk detail kode bahan tertentu (tetap seperti sebelumnya)
-            selected_kode = st.selectbox("🔍 Pilih Kode Bahan untuk Detail", kode_bahan_list)
+            # Fitur filter untuk detail kode bahan tertentu
+            st.header("🔍 Filter Berdasarkan Kode Bahan")
+            selected_kode = st.selectbox("Pilih Kode Bahan untuk Detail", kode_bahan_list)
 
             # Filter berdasarkan pasangan kode dan label yang sesuai
             hasil_data = []
@@ -98,9 +117,11 @@ def filter_labelqc():
                 mask = df_asli[kode_col].astype(str).str.strip() == selected_kode
                 filtered_rows = df_asli[mask]
                 for _, row in filtered_rows.iterrows():
+                    batch_info = {batch_col: row[batch_col] if pd.notna(row[batch_col]) else "" for batch_col in batch_cols}
                     hasil_data.append({
                         "Kode Bahan": selected_kode,
-                        "Label QC": row[label_col] if pd.notna(row[label_col]) else ""
+                        "Label QC": row[label_col] if pd.notna(row[label_col]) else "",
+                        **batch_info
                     })
 
             hasil_df = pd.DataFrame(hasil_data)
@@ -117,6 +138,73 @@ def filter_labelqc():
                     file_name=f"detail_label_qc_{selected_kode}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
+
+            # FITUR BARU: Filter berdasarkan Label QC (MULTIPLE SELECTION)
+            st.header("🔍 Filter Berdasarkan Label QC")
+            
+            # Dapatkan semua label QC unik
+            all_labels = complete_df["Label QC"].dropna().astype(str).unique()
+            all_labels = sorted([label for label in all_labels if label.strip()])
+            
+            # Tambahkan checkbox untuk "Pilih Semua"
+            select_all = st.checkbox("Pilih Semua Label QC")
+            
+            # Buat multiselect dengan default semua terpilih jika select_all dicentang
+            if select_all:
+                default_selection = all_labels
+            else:
+                default_selection = []
+                
+            # Ubah dari selectbox menjadi multiselect untuk memilih lebih dari satu Label QC
+            selected_labels = st.multiselect(
+                "Pilih Label QC untuk Melihat Batch", 
+                all_labels,
+                default=default_selection
+            )
+            
+            if selected_labels:
+                # Filter data berdasarkan label QC yang dipilih (multiple)
+                label_filtered_df = complete_df[complete_df["Label QC"].astype(str).isin(selected_labels)]
+                
+                if label_filtered_df.empty:
+                    st.warning(f"Tidak ada data dengan Label QC yang dipilih")
+                else:
+                    # Konversi kolom batch ke string untuk menghindari masalah sorting dengan NaN values
+                    for batch_col in batch_cols:
+                        if batch_col in label_filtered_df.columns:
+                            label_filtered_df[batch_col] = label_filtered_df[batch_col].fillna("").astype(str)
+                    
+                    # Urutkan hasil sesuai permintaan: Nomor Batch, Kode Bahan, Label QC
+                    sort_columns = batch_cols + ["Kode Bahan", "Label QC"]
+                    label_filtered_df = label_filtered_df.sort_values(by=sort_columns)
+                    
+                    # Tampilkan judul dengan label yang dipilih
+                    label_list_str = ", ".join(selected_labels)
+                    st.subheader(f"📋 Batch dengan Label QC: {label_list_str}")
+                    
+                    # Reorganisasi kolom untuk menampilkan dengan urutan: Nomor Batch > Kode Bahan > Label QC
+                    column_order = batch_cols + ["Kode Bahan", "Label QC"]
+                    label_filtered_df = label_filtered_df[column_order]
+                    
+                    # Tampilkan hasil filter dengan urutan kolom yang sudah diatur
+                    st.dataframe(label_filtered_df)
+                    
+                    # Fitur Download hasil filter Label QC
+                    excel_label_data = to_excel(label_filtered_df)
+                    
+                    # Buat nama file yang sesuai dengan label yang dipilih
+                    if len(selected_labels) == 1:
+                        filename = f"batch_dengan_label_qc_{selected_labels[0]}.xlsx"
+                    else:
+                        # Jika multi-label, gunakan 'multiple_labels'
+                        filename = f"batch_dengan_multiple_label_qc.xlsx"
+                    
+                    st.download_button(
+                        label="📥 Download Data dengan Label QC ini (Excel)",
+                        data=excel_label_data,
+                        file_name=filename,
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
 
         except Exception as e:
             st.error(f"❌ Terjadi kesalahan saat membaca file: {e}")
