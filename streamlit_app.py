@@ -32,7 +32,7 @@ if menu == "In Process Control (IPC)":
 
 if menu == "CPP BAHAN":
     # Submenu untuk CPP BAHAN
-    submenu = st.sidebar.radio("Submenu CPP Bahan", ["Upload File", "Ekstrak Data Batch"])
+    submenu = st.sidebar.radio("Submenu CPP Bahan", ["CPP Bahan", "Filter Label QC"])
 
     if submenu == "Upload File":
         st.title("📤 Upload File CPP")
