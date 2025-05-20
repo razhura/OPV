@@ -12,63 +12,52 @@ import json
 import os
 import numpy as npna
 
+
+
 # --- PENGATURAN HALAMAN HARUS JADI YANG PERTAMA ---
 st.set_page_config(page_title="Excel CQA Parser", layout="wide")
 
-# Inisialisasi session state untuk menyimpan nilai opacity
+# Inisialisasi session state
 if 'opacity' not in st.session_state:
-    st.session_state.opacity = 0.5  # Awal 50% transparan
+    st.session_state.opacity = 0.3  # Default opacity (0 = penuh, 1 = full putih)
 
-# Fungsi untuk menambahkan background dan overlay dengan opacity
+# Fungsi untuk menambahkan background dengan efek opacity
 def add_bg_from_github():
-    github_image_url = "https://raw.githubusercontent.com/razhura/OPV/cfe3d71222414a3de87d2d4223ba8d393b1284f7/BG.jpg"
-
+    bg_url = "https://raw.githubusercontent.com/razhura/OPV/cfe3d71222414a3de87d2d4223ba8d393b1284f7/BG.jpg"
+    
+    opacity = st.session_state.opacity
     st.markdown(f"""
         <style>
         .stApp {{
-            background: url("{github_image_url}") no-repeat center center fixed;
+            background: linear-gradient(
+                rgba(255, 255, 255, {opacity}),
+                rgba(255, 255, 255, {opacity})
+            ), url("{bg_url}");
             background-size: cover;
-            position: relative;
-        }}
-
-        .opacity-overlay {{
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(255, 255, 255, {st.session_state.opacity});
-            z-index: -1;
-        }}
-
-        .main > div {{
-            position: relative;
-            z-index: 0;
+            background-position: center;
+            background-attachment: fixed;
         }}
         </style>
-
-        <div class="opacity-overlay"></div>
     """, unsafe_allow_html=True)
 
 # Panggil fungsi background
 add_bg_from_github()
 
-# Sidebar untuk kontrol opacity
+# Sidebar pengaturan opacity
 with st.sidebar:
     st.subheader("Pengaturan Tampilan")
-    
     new_opacity = st.slider(
-        "Atur Opacity Background:",
-        min_value=0.0,
-        max_value=1.0,
+        "Atur Opacity Background:", 
+        min_value=0.0, 
+        max_value=1.0, 
         value=st.session_state.opacity,
         step=0.1,
         format="%.1f"
     )
-
     if new_opacity != st.session_state.opacity:
         st.session_state.opacity = new_opacity
         st.rerun()
+
     
 
 
