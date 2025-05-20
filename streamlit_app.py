@@ -72,11 +72,8 @@ def add_bg_from_github():
 # Panggil fungsi background
 add_bg_from_github()
 
-# Tambahkan judul aplikasi
-st.title("Excel CQA Parser")
 
-# Konten utama aplikasi Anda
-st.write("Konten aplikasi Anda akan muncul di sini...")
+
 
 # Tambahkan container untuk kontrol opacity di pojok kiri bawah
 with st.sidebar:
@@ -97,30 +94,7 @@ with st.sidebar:
         st.session_state.opacity = new_opacity
         st.rerun()
     
-    # Informasi tentang pengaturan
-    st.info("Geser slider untuk mengatur transparansi background aplikasi.")
 
-# Alternatif tombol untuk perangkat mobile
-st.markdown('<div style="height: 70vh"></div>', unsafe_allow_html=True)  # Spacer vertikal
-with st.container():
-    col1, col2, col3 = st.columns([1, 1, 1])
-    
-    with col1:
-        if st.button("➖", help="Kurangi opacity"):
-            # Kurangi opacity (minimal 0)
-            st.session_state.opacity = max(0.0, st.session_state.opacity - 0.1)
-            st.rerun()  # Refresh halaman untuk menerapkan perubahan
-            
-    with col2:
-        # Tampilkan nilai opacity saat ini (dibulatkan)
-        st.markdown(f"<h4 style='text-align:center'>{st.session_state.opacity:.1f}</h4>", 
-                   unsafe_allow_html=True)
-            
-    with col3:
-        if st.button("➕", help="Tambah opacity"):
-            # Tambah opacity (maksimal 1)
-            st.session_state.opacity = min(1.0, st.session_state.opacity + 0.1)
-            st.rerun()  # Refresh halaman untuk menerapkan perubahan
 
 # Modul internal
 from navbar import render_navbar
