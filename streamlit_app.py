@@ -17,7 +17,7 @@ st.set_page_config(page_title="Excel CQA Parser", layout="wide")
 
 # Inisialisasi session state untuk menyimpan nilai opacity
 if 'opacity' not in st.session_state:
-    st.session_state.opacity = 0.0  # Default opacity 0 (transparan sempurna)
+    st.session_state.opacity = 1.0  # Default opacity 0 (transparan sempurna)
 
 # Fungsi untuk menambahkan background dari GitHub dengan opacity yang bisa diatur
 def add_bg_from_github():
