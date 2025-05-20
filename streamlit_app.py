@@ -20,7 +20,7 @@ if 'opacity' not in st.session_state:
     st.session_state.opacity = 0.0  # Default opacity 0 (transparan sempurna)
 
 # Fungsi untuk menambahkan background dari GitHub dengan opacity yang bisa diatur
-def add_bg_from_github(opacity=0.0):
+def add_bg_from_github():
     # URL gambar dari GitHub repo Anda
     github_image_url = "https://raw.githubusercontent.com/razhura/OPV/cfe3d71222414a3de87d2d4223ba8d393b1284f7/BG.jpg"
     
@@ -33,14 +33,24 @@ def add_bg_from_github(opacity=0.0):
         background-position: center;
         background-repeat: no-repeat;
         background-attachment: fixed;
-        background-color: rgba(255, 255, 255, {opacity});
     }}
     
-    /* Tambahkan transparansi ke container Streamlit */
-    .st-emotion-cache-18ni7ap.ezrtsby2 {{
-        background: rgba(255, 255, 255, {opacity});
+    /* Overlay untuk mengontrol opacity background */
+    .stApp:before {{
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(255, 255, 255, {st.session_state.opacity});
+        z-index: -1;
+    }}
+    
+    /* Styling untuk container di Streamlit */
+    .st-emotion-cache-18ni7ap {{
+        background-color: rgba(255, 255, 255, {st.session_state.opacity + 0.1});
         border-radius: 10px;
-        padding: 20px;
     }}
     
     /* Styling untuk container tombol opacity di pojok kiri bawah */
@@ -59,26 +69,41 @@ def add_bg_from_github(opacity=0.0):
     # Menyisipkan CSS ke aplikasi
     st.markdown(bg_style, unsafe_allow_html=True)
 
-# Panggil fungsi background dengan nilai opacity dari session state
-add_bg_from_github(opacity=st.session_state.opacity)
+# Panggil fungsi background
+add_bg_from_github()
 
-# --- KODE UTAMA APLIKASI ANDA ---
-# Modul internal dan kode lainnya bisa Anda tambahkan di sini
-# from navbar import render_navbar
-# ... kode lainnya
+# Tambahkan judul aplikasi
+st.title("Excel CQA Parser")
 
-# Tambahkan HTML untuk kontrol opacity di pojok kiri bawah
-opacity_control_html = """
-<div class="opacity-control">
-    <h4 style="margin:0">Atur Opacity</h4>
-</div>
-"""
-st.markdown(opacity_control_html, unsafe_allow_html=True)
+# Konten utama aplikasi Anda
+st.write("Konten aplikasi Anda akan muncul di sini...")
 
-# Buat container untuk tombol pengaturan opacity di bagian bawah
-st.markdown('<div style="height: 90vh"></div>', unsafe_allow_html=True)  # Spacer vertikal
+# Tambahkan container untuk kontrol opacity di pojok kiri bawah
+with st.sidebar:
+    st.subheader("Pengaturan Tampilan")
+    
+    # Slider untuk mengatur opacity
+    new_opacity = st.slider(
+        "Atur Opacity Background:", 
+        min_value=0.0, 
+        max_value=1.0, 
+        value=st.session_state.opacity,
+        step=0.1,
+        format="%.1f"
+    )
+    
+    # Jika nilai opacity berubah, update session state dan refresh halaman
+    if new_opacity != st.session_state.opacity:
+        st.session_state.opacity = new_opacity
+        st.rerun()
+    
+    # Informasi tentang pengaturan
+    st.info("Geser slider untuk mengatur transparansi background aplikasi.")
+
+# Alternatif tombol untuk perangkat mobile
+st.markdown('<div style="height: 70vh"></div>', unsafe_allow_html=True)  # Spacer vertikal
 with st.container():
-    col1, col2, col3, col4 = st.columns([1, 1, 1, 7])
+    col1, col2, col3 = st.columns([1, 1, 1])
     
     with col1:
         if st.button("➖", help="Kurangi opacity"):
