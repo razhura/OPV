@@ -46,7 +46,7 @@ if menu == "CPP BAHAN":
 
     st.stop()
 
-if menu == "Produk Obat Test CPP Konimax": 
+if menu == "Produk Obat Test CPP Konimax (LutfanTZY Jaya Lovers": 
     tampilkan_obat() 
     st.stop()
     
