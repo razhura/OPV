@@ -19,8 +19,7 @@ st.set_page_config(page_title="Excel CQA Parser", layout="wide")
 def add_bg_from_github():
     # Ganti dengan URL gambar dari GitHub repo Anda
     # Format GitHub raw URL: https://raw.githubusercontent.com/username/repo/main/path/to/image.jpg
-    github_image_url = "https://raw.githubusercontent.com/razhura/OPV/cfe3d71222414a3de87d2d4223ba8d393b1284f7/BG.jpg
-"
+    github_image_url = "https://raw.githubusercontent.com/razhura/OPV/cfe3d71222414a3de87d2d4223ba8d393b1284f7/BG.jpg"
     
     # CSS untuk mengatur background
     bg_style = f"""
