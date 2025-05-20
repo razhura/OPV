@@ -312,7 +312,8 @@ def parse_nama_mesin_tab2(file):
             # Initialize machine categories for Vietnam
             mesin_batch_groups = {
                 "HASSIA REDATRON": [],
-                "SACKLOK 00001": []
+                "SACKLOK 00001": [],
+                "Olsa Mames": []  # Default for unclassified
             }
             
             # Initialize original machine names
@@ -329,9 +330,11 @@ def parse_nama_mesin_tab2(file):
                     # Determine machine based on keywords
                     if "hassia" in row_str or "redatron" in row_str:
                         machine = "HASSIA REDATRON"
-                    else "sacklok" in row_str:
+                    elif "sacklok" in row_str:
                         machine = "SACKLOK 00001"
-                 
+                    else:
+                        machine = "Olsa Mames"  # Default
+                    
                     # Add batch to appropriate machine group
                     mesin_batch_groups[machine].append(batch)
                     
@@ -341,12 +344,10 @@ def parse_nama_mesin_tab2(file):
                     if machine not in batch_machine_mapping[batch]:
                         batch_machine_mapping[batch].append(machine)
             
-          # Report findings
-        st.info(
-            f"Vietnam data processing - "
-            f"HASSIA: {len(mesin_batch_groups['HASSIA REDATRON'])} batches, "
-            f"SACKLOK: {len(mesin_batch_groups['SACKLOK 00001'])} batches."
-        )
+            # Report findings
+            st.info(f"Vietnam data processing - HASSIA: {len(mesin_batch_groups['HASSIA REDATRON'])} batches, " +
+                   f"SACKLOK: {len(mesin_batch_groups['SACKLOK 00001'])} batches, " +
+                   f"Other: {len(mesin_batch_groups['Olsa Mames'])} batches")
         else:
             # Standard processing for Kamboja data
             for i in range(len(df)):
