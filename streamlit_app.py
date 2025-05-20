@@ -34,7 +34,7 @@ def add_bg_from_github():
     
     /* Tambahkan transparansi ke container Streamlit */
     .st-emotion-cache-18ni7ap.ezrtsby2 {{
-        background: rgba(255, 255, 255, 0.8);
+        background: rgba(255, 255, 255, 0.2);
         border-radius: 10px;
         padding: 20px;
     }}
