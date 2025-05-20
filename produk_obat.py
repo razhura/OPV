@@ -1,3 +1,12 @@
+import streamlit as st
+import pandas as pd
+import io
+import base64
+import json
+import os
+import numpy as np
+
+
 def parse_kode_mesin_Kamboja(file): 
     try:
         import pandas as pd
@@ -133,6 +142,7 @@ def parse_kode_mesin_Kamboja(file):
         st.exception(e)  # Tampilkan detail error untuk debugging
         return None
     
+
 def parse_kode_mesin_Vietnam(file): 
     try:
         import pandas as pd
@@ -179,7 +189,8 @@ def parse_kode_mesin_Vietnam(file):
         st.write(f"Jumlah baris asli: {len(df)}")
         st.write(f"Jumlah batch unik: {len(vietnam_batches)}")
         
-        # Simpan data ke session state untuk digunakan di tab lain
+        # PENTING: Simpan data ke session state untuk digunakan di tab lain
+        # Ini adalah kunci untuk memastikan data Vietnam tersedia di tab2
         st.session_state.original_tab1_json = json.dumps(mesin_map)
         st.session_state.tab1_json = json.dumps(mesin_map)
         
@@ -202,7 +213,7 @@ def parse_kode_mesin_Vietnam(file):
             if not batches_to_keep:
                 st.warning("Tidak ada batch yang dapat disimpan dari mesin yang dipilih.")
             else:
-                # Gunakan result_df sebagai sumber untuk filtering
+                # Gunakan original_df sebagai sumber untuk filtering
                 filtered_rows = []
                 for i in range(len(original_df)):
                     if i == 0:  # Pertahankan header
@@ -231,13 +242,17 @@ def parse_kode_mesin_Vietnam(file):
                     
                 # Update session state untuk tab Vietnam
                 st.session_state.filtered_tab1_json = json.dumps(filtered_mesin_map)
+                st.session_state.tab1_json = json.dumps(filtered_mesin_map)  # Penting: Update tab1_json juga!
                 
-                # Pastikan kita return data yang sesuai untuk tab2
                 return filtered_df
             
-        # PENTING: Return dictionary mesin_map, bukan DataFrame result_df
-        # Kita tetap set session state, tapi return original_df untuk konsistensi
-        return original_df
+        # Return mesin_map untuk memberikan informasi bahwa ada batch yang valid untuk tab2
+        # Ini yang penting - return value tidak harus DataFrame
+        # Yang penting tab1_json di session_state sudah diisi dengan data yang benar
+        return df
+    except Exception as e:
+        st.error(f"Error saat memproses file Vietnam: {str(e)}")
+        return None
     except Exception as e:
         st.error(f"Error saat memproses file Vietnam: {str(e)}")
         return None
@@ -356,19 +371,8 @@ def parse_nama_mesin_tab2(file):
         # Initialize result_df to None at the beginning
         result_df = None
         
-        # TAMBAHKAN DEBUG INFO UNTUK MELIHAT STATUS SESSION STATE
-        st.write("### Debug Info")
-        if 'tab1_json' in st.session_state:
-            st.write("✓ Data dari Tab 1 tersedia")
-            try:
-                mesin_data = json.loads(st.session_state.tab1_json)
-                st.write(f"→ Mesin yang terdeteksi: {list(mesin_data.keys())}")
-                for mesin, batches in mesin_data.items():
-                    st.write(f"→ {mesin}: {len(batches)} batch")
-            except Exception as e:
-                st.error(f"Error saat parsing JSON: {str(e)}")
-        else:
-            st.warning("⚠️ Data batch dari Tab 1 belum tersedia. Silakan proses data di Tab 1 terlebih dahulu.")
+        if 'tab1_json' not in st.session_state:
+            st.warning("Data batch dari Tab 1 belum tersedia. Silakan proses data di Tab 1 terlebih dahulu.")
             st.session_state['filtered_nama_mesin_map'] = mesin_batch_groups
             return None
 
