@@ -15,13 +15,16 @@ import numpy as npna
 # --- PENGATURAN HALAMAN HARUS JADI YANG PERTAMA ---
 st.set_page_config(page_title="Excel CQA Parser", layout="wide")
 
-# Fungsi untuk menambahkan background dari GitHub
-def add_bg_from_github():
-    # Ganti dengan URL gambar dari GitHub repo Anda
-    # Format GitHub raw URL: https://raw.githubusercontent.com/username/repo/main/path/to/image.jpg
+# Inisialisasi session state untuk menyimpan nilai opacity
+if 'opacity' not in st.session_state:
+    st.session_state.opacity = 0.0  # Default opacity 0 (transparan sempurna)
+
+# Fungsi untuk menambahkan background dari GitHub dengan opacity yang bisa diatur
+def add_bg_from_github(opacity=0.0):
+    # URL gambar dari GitHub repo Anda
     github_image_url = "https://raw.githubusercontent.com/razhura/OPV/cfe3d71222414a3de87d2d4223ba8d393b1284f7/BG.jpg"
     
-    # CSS untuk mengatur background
+    # CSS untuk mengatur background dengan opacity yang bisa disesuaikan
     bg_style = f"""
     <style>
     .stApp {{
@@ -30,13 +33,25 @@ def add_bg_from_github():
         background-position: center;
         background-repeat: no-repeat;
         background-attachment: fixed;
+        background-color: rgba(255, 255, 255, {opacity});
     }}
     
     /* Tambahkan transparansi ke container Streamlit */
     .st-emotion-cache-18ni7ap.ezrtsby2 {{
-        background: rgba(255, 255, 255, 0);
+        background: rgba(255, 255, 255, {opacity});
         border-radius: 10px;
         padding: 20px;
+    }}
+    
+    /* Styling untuk container tombol opacity di pojok kiri bawah */
+    .opacity-control {{
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        background-color: rgba(255, 255, 255, 0.7);
+        padding: 10px;
+        border-radius: 10px;
+        z-index: 1000;
     }}
     </style>
     """
@@ -44,8 +59,43 @@ def add_bg_from_github():
     # Menyisipkan CSS ke aplikasi
     st.markdown(bg_style, unsafe_allow_html=True)
 
-# Panggil fungsi background SETELAH st.set_page_config
-add_bg_from_github()
+# Panggil fungsi background dengan nilai opacity dari session state
+add_bg_from_github(opacity=st.session_state.opacity)
+
+# --- KODE UTAMA APLIKASI ANDA ---
+# Modul internal dan kode lainnya bisa Anda tambahkan di sini
+# from navbar import render_navbar
+# ... kode lainnya
+
+# Tambahkan HTML untuk kontrol opacity di pojok kiri bawah
+opacity_control_html = """
+<div class="opacity-control">
+    <h4 style="margin:0">Atur Opacity</h4>
+</div>
+"""
+st.markdown(opacity_control_html, unsafe_allow_html=True)
+
+# Buat container untuk tombol pengaturan opacity di bagian bawah
+st.markdown('<div style="height: 90vh"></div>', unsafe_allow_html=True)  # Spacer vertikal
+with st.container():
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 7])
+    
+    with col1:
+        if st.button("➖", help="Kurangi opacity"):
+            # Kurangi opacity (minimal 0)
+            st.session_state.opacity = max(0.0, st.session_state.opacity - 0.1)
+            st.rerun()  # Refresh halaman untuk menerapkan perubahan
+            
+    with col2:
+        # Tampilkan nilai opacity saat ini (dibulatkan)
+        st.markdown(f"<h4 style='text-align:center'>{st.session_state.opacity:.1f}</h4>", 
+                   unsafe_allow_html=True)
+            
+    with col3:
+        if st.button("➕", help="Tambah opacity"):
+            # Tambah opacity (maksimal 1)
+            st.session_state.opacity = min(1.0, st.session_state.opacity + 0.1)
+            st.rerun()  # Refresh halaman untuk menerapkan perubahan
 
 # Modul internal
 from navbar import render_navbar
