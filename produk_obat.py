@@ -1,12 +1,3 @@
-import streamlit as st
-import pandas as pd
-import io
-import base64
-import json
-import os
-import numpy as np
-
-
 def parse_kode_mesin_Kamboja(file): 
     try:
         import pandas as pd
@@ -142,7 +133,6 @@ def parse_kode_mesin_Kamboja(file):
         st.exception(e)  # Tampilkan detail error untuk debugging
         return None
     
-
 def parse_kode_mesin_Vietnam(file): 
     try:
         import pandas as pd
@@ -242,10 +232,12 @@ def parse_kode_mesin_Vietnam(file):
                 # Update session state untuk tab Vietnam
                 st.session_state.filtered_tab1_json = json.dumps(filtered_mesin_map)
                 
+                # Pastikan kita return data yang sesuai untuk tab2
                 return filtered_df
             
-        # Return DataFrame asli jika tidak ada filtering
-        return result_df
+        # PENTING: Return dictionary mesin_map, bukan DataFrame result_df
+        # Kita tetap set session state, tapi return original_df untuk konsistensi
+        return original_df
     except Exception as e:
         st.error(f"Error saat memproses file Vietnam: {str(e)}")
         return None
@@ -364,8 +356,19 @@ def parse_nama_mesin_tab2(file):
         # Initialize result_df to None at the beginning
         result_df = None
         
-        if 'tab1_json' not in st.session_state:
-            st.warning("Data batch dari Tab 1 belum tersedia. Silakan proses data di Tab 1 terlebih dahulu.")
+        # TAMBAHKAN DEBUG INFO UNTUK MELIHAT STATUS SESSION STATE
+        st.write("### Debug Info")
+        if 'tab1_json' in st.session_state:
+            st.write("✓ Data dari Tab 1 tersedia")
+            try:
+                mesin_data = json.loads(st.session_state.tab1_json)
+                st.write(f"→ Mesin yang terdeteksi: {list(mesin_data.keys())}")
+                for mesin, batches in mesin_data.items():
+                    st.write(f"→ {mesin}: {len(batches)} batch")
+            except Exception as e:
+                st.error(f"Error saat parsing JSON: {str(e)}")
+        else:
+            st.warning("⚠️ Data batch dari Tab 1 belum tersedia. Silakan proses data di Tab 1 terlebih dahulu.")
             st.session_state['filtered_nama_mesin_map'] = mesin_batch_groups
             return None
 
