@@ -11,6 +11,39 @@ from openpyxl import load_workbook
 import json
 import os
 import numpy as npna
+
+# Fungsi untuk menambahkan background dari GitHub
+def add_bg_from_github():
+    # Ganti dengan URL gambar dari GitHub repo Anda
+    # Format GitHub raw URL: https://github.com/razhura/OPV/blob/63f9525f82b817c47d7574ec2563f2f4712a5cd4/BG.jpeg
+    github_image_url = "https://github.com/razhura/OPV/blob/63f9525f82b817c47d7574ec2563f2f4712a5cd4/BG.jpeg"
+    
+    # CSS untuk mengatur background
+    bg_style = f"""
+    <style>
+    .stApp {{
+        background-image: url("{github_image_url}");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+    }}
+    
+    /* Tambahkan transparansi ke container Streamlit */
+    .st-emotion-cache-18ni7ap.ezrtsby2 {{
+        background: rgba(255, 255, 255, 0.8);
+        border-radius: 10px;
+        padding: 20px;
+    }}
+    </style>
+    """
+    
+    # Menyisipkan CSS ke aplikasi
+    st.markdown(bg_style, unsafe_allow_html=True)
+
+# Tambahkan kode ini di awal aplikasi Anda (sebelum st.set_page_config)
+add_bg_from_github()
+
 st.set_page_config(page_title="Excel CQA Parser", layout="wide")
 
 # Modul internal
