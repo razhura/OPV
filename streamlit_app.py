@@ -12,83 +12,64 @@ import json
 import os
 import numpy as npna
 
-# --- PENGATURAN HALAMAN HARUS JADI YANG PERTAMA ---
 st.set_page_config(page_title="Excel CQA Parser", layout="wide")
 
 # Inisialisasi session state untuk menyimpan nilai opacity
 if 'opacity' not in st.session_state:
-    st.session_state.opacity = 1.0  # Default opacity 0 (transparan sempurna)
+    st.session_state.opacity = 1.0  # Default opacity 1.0 (tidak transparan)
 
-# Fungsi untuk menambahkan background dari GitHub dengan opacity yang bisa diatur
+# Fungsi untuk menambahkan background dari GitHub dengan overlay opacity
 def add_bg_from_github():
-    # URL gambar dari GitHub repo Anda
     github_image_url = "https://raw.githubusercontent.com/razhura/OPV/cfe3d71222414a3de87d2d4223ba8d393b1284f7/BG.jpg"
-    
-    # CSS untuk mengatur background dengan opacity yang bisa disesuaikan
-    bg_style = f"""
-    <style>
-    .stApp {{
-        background-image: url("{github_image_url}");
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-        background-attachment: fixed;
-    }}
-    
-    /* Overlay untuk mengontrol opacity background */
-    .stApp:before {{
-        content: "";
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(255, 255, 255, {st.session_state.opacity});
-        z-index: -1;
-    }}
-    
-    /* Styling untuk container di Streamlit */
-    .st-emotion-cache-18ni7ap {{
-        background-color: rgba(255, 255, 255, {st.session_state.opacity + 0.1});
-        border-radius: 10px;
-    }}
-    
-    /* Styling untuk container tombol opacity di pojok kiri bawah */
-    .opacity-control {{
-        position: fixed;
-        bottom: 20px;
-        left: 20px;
-        background-color: rgba(255, 255, 255, 0.7);
-        padding: 10px;
-        border-radius: 10px;
-        z-index: 1000;
-    }}
-    </style>
-    """
-    
-    # Menyisipkan CSS ke aplikasi
-    st.markdown(bg_style, unsafe_allow_html=True)
+
+    st.markdown(f"""
+        <style>
+        .stApp {{
+            background-image: url("{github_image_url}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        }}
+
+        /* Overlay sebagai div biasa */
+        #overlay {{
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(255, 255, 255, {st.session_state.opacity});
+            z-index: -1;
+        }}
+
+        /* Styling untuk container di Streamlit */
+        .st-emotion-cache-18ni7ap {{
+            background-color: rgba(255, 255, 255, {min(st.session_state.opacity + 0.1, 1.0)});
+            border-radius: 10px;
+        }}
+        </style>
+
+        <div id="overlay"></div>
+    """, unsafe_allow_html=True)
 
 # Panggil fungsi background
 add_bg_from_github()
 
-
-
-
-# Tambahkan container untuk kontrol opacity di pojok kiri bawah
+# Sidebar untuk kontrol opacity
 with st.sidebar:
     st.subheader("Pengaturan Tampilan")
-    
+
     # Slider untuk mengatur opacity
     new_opacity = st.slider(
-        "Atur Opacity Background:", 
-        min_value=0.0, 
-        max_value=1.0, 
+        "Atur Opacity Background:",
+        min_value=0.0,
+        max_value=1.0,
         value=st.session_state.opacity,
         step=0.1,
         format="%.1f"
     )
-    
+
     # Jika nilai opacity berubah, update session state dan refresh halaman
     if new_opacity != st.session_state.opacity:
         st.session_state.opacity = new_opacity
