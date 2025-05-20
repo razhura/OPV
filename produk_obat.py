@@ -215,6 +215,25 @@ def parse_nama_mesin_tab2(file):
         import datetime
         import numpy as np
         import os
+        import base64
+        
+        # Fungsi untuk membuat tombol download Excel
+        def export_dataframe(df, filename="data_export", sheet_name="Sheet1"):
+            """
+            Membuat tombol download untuk DataFrame
+            """
+            # Konversi df ke Excel dalam memory
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                df.to_excel(writer, sheet_name=sheet_name, index=False)
+            
+            # Konversi ke bytes dan encode ke base64
+            b64 = base64.b64encode(output.getvalue()).decode()
+            
+            # Membuat link download
+            href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}.xlsx" class="btn" style="background-color:#4CAF50;color:white;padding:8px 12px;text-decoration:none;border-radius:4px;">📥 Download {filename}.xlsx</a>'
+            
+            return href
 
         # Debug information to help troubleshoot
         st.write("### Debug Information")
@@ -482,6 +501,46 @@ def parse_nama_mesin_tab2(file):
                 result_df = pd.DataFrame(uniform_data)
                 st.write("📊 Detail Lengkap Batch Per Mesin:")
                 st.dataframe(result_df)
+                
+                # Tambahkan tombol download untuk tiap kategori mesin
+                st.write("### Download Excel per Kategori Mesin")
+                for mesin_name, batch_list in filtered_mesin_batch.items():
+                    if batch_list:  # Hanya tampilkan jika ada batch
+                        # Buat DataFrame untuk kategori mesin ini
+                        mesin_df = pd.DataFrame({
+                            "Batch": batch_list,
+                            "Mesin": [mesin_name] * len(batch_list)
+                        })
+                        
+                        # Buat tombol download untuk kategori ini
+                        filename = f"batch_{mesin_name.lower().replace(' ', '_')}"
+                        download_button = export_dataframe(mesin_df, filename)
+                        
+                        col1, col2 = st.columns([1, 3])
+                        with col1:
+                            st.markdown(f"**{mesin_name}**")
+                        with col2:
+                            st.markdown(download_button, unsafe_allow_html=True)
+                        
+                        # Tampilkan jumlah batch
+                        st.caption(f"{len(batch_list)} batch teridentifikasi")
+                        
+                # Tambahkan tombol download untuk semua kategori
+                all_batches = []
+                all_mesins = []
+                for mesin_name, batch_list in filtered_mesin_batch.items():
+                    all_batches.extend(batch_list)
+                    all_mesins.extend([mesin_name] * len(batch_list))
+                
+                if all_batches:
+                    st.write("### Download Semua Batch")
+                    all_df = pd.DataFrame({
+                        "Batch": all_batches,
+                        "Mesin": all_mesins
+                    })
+                    download_all = export_dataframe(all_df, "semua_batch_mesin")
+                    st.markdown(download_all, unsafe_allow_html=True)
+                    st.caption(f"Total {len(all_batches)} batch dari {len(filtered_mesin_batch)} mesin")
 
         if st.button("Simpan Referensi Nama Mesin ke JSON"):
             try:
