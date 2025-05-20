@@ -14,38 +14,58 @@ import numpy as npna
 
 
 
-# --- PENGATURAN HALAMAN HARUS JADI YANG PERTAMA ---
+
 st.set_page_config(page_title="Excel CQA Parser", layout="wide")
 
-# Inisialisasi session state
+# Inisialisasi session state untuk menyimpan nilai opacity
 if 'opacity' not in st.session_state:
-    st.session_state.opacity = 1.0  # Default opacity (0 = penuh, 1 = full putih)
+    st.session_state.opacity = 1.0  # Default opacity (penuh putih)
 
-# Fungsi untuk menambahkan background dengan efek opacity
+# Fungsi untuk menambahkan background dari GitHub dengan opacity yang bisa diatur
 def add_bg_from_github():
-    bg_url = "https://raw.githubusercontent.com/razhura/OPV/cfe3d71222414a3de87d2d4223ba8d393b1284f7/BG.jpg"
-    
+    github_image_url = "https://raw.githubusercontent.com/razhura/OPV/cfe3d71222414a3de87d2d4223ba8d393b1284f7/BG.jpg"
     opacity = st.session_state.opacity
-    st.markdown(f"""
-        <style>
-        .stApp {{
-            background: linear-gradient(
-                rgba(255, 255, 255, {opacity}),
-                rgba(255, 255, 255, {opacity})
-            ), url("{bg_url}");
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-        }}
-        </style>
-    """, unsafe_allow_html=True)
+
+    # CSS untuk background dan elemen lain agar ikut transparan
+    bg_style = f"""
+    <style>
+    /* Background utama dengan overlay opacity */
+    .stApp {{
+        background: linear-gradient(rgba(255,255,255,{opacity}), rgba(255,255,255,{opacity})), 
+                    url("{github_image_url}");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+    }}
+
+    /* Sidebar transparan */
+    section[data-testid="stSidebar"] > div {{
+        background-color: rgba(255, 255, 255, {opacity});
+    }}
+
+    /* Header transparan */
+    header[data-testid="stHeader"] {{
+        background-color: rgba(255, 255, 255, {opacity});
+    }}
+
+    /* Kontainer utama transparan */
+    .st-emotion-cache-18ni7ap {{
+        background-color: rgba(255, 255, 255, {opacity + 0.1});
+        border-radius: 10px;
+    }}
+    </style>
+    """
+    st.markdown(bg_style, unsafe_allow_html=True)
 
 # Panggil fungsi background
 add_bg_from_github()
 
-# Sidebar pengaturan opacity
+# Sidebar untuk kontrol opacity
 with st.sidebar:
     st.subheader("Pengaturan Tampilan")
+    
+    # Slider untuk mengatur opacity
     new_opacity = st.slider(
         "Atur Opacity Background:", 
         min_value=0.0, 
@@ -54,9 +74,12 @@ with st.sidebar:
         step=0.1,
         format="%.1f"
     )
+    
+    # Jika nilai opacity berubah, update session state dan refresh halaman
     if new_opacity != st.session_state.opacity:
         st.session_state.opacity = new_opacity
         st.rerun()
+
 
     
 
