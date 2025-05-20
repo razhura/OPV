@@ -216,6 +216,7 @@ def parse_nama_mesin_tab2(file):
         import numpy as np
         import os
         import base64
+        import io  # Added missing import for BytesIO
         
         # Fungsi untuk membuat tombol download Excel
         def export_dataframe(df, filename="data_export", sheet_name="Sheet1"):
@@ -272,32 +273,53 @@ def parse_nama_mesin_tab2(file):
             tab1_data = json.loads(st.session_state.tab1_json)
             if "Olsa Mames" in tab1_data:
                 is_vietnam_data = True
-                # For Vietnam data, we'll extract machine names from the data itself
-                # Based on patterns like "HASSIA", "SACKLOK", etc.
                 
-                # Do NOT add Olsa Mames as a machine name - it will be used as a filter
-                # Instead just scan for HASSIA and SACKLOK
+                # For Vietnam data, extract potential machine names
+                machine_keywords = ["hassia", "sacklok", "redatron", "packaging", "machine", "vietnam"]
                 
-                # Scan the file for potential machine names in Vietnam data
-                machine_keywords = ["hassia", "sacklok", "redatron"]
-                
+                # Scan the file more thoroughly to identify potential machine names
                 for i in range(len(df)):
                     for col in range(df.shape[1]):  # Check all columns
-                        cell_value = str(df.iloc[i, col]).strip().lower()
-                        for keyword in machine_keywords:
-                            if keyword in cell_value and cell_value not in [m.lower() for m in all_machine_names]:
-                                # Add this as a potential machine name
-                                all_machine_names.append(cell_value.upper())
-                                break
+                        cell_value = str(df.iloc[i, col]).strip()
+                        if cell_value and cell_value.upper() != "NAN" and not pd.isna(cell_value):
+                            # Check for machine name keywords in this cell
+                            cell_lower = cell_value.lower()
+                            
+                            # Look for machine name patterns
+                            if any(keyword in cell_lower for keyword in machine_keywords):
+                                # Extract this as a potential machine name - keep original case
+                                machine_candidate = cell_value
+                                
+                                # Add surrounding context if possible (combine with nearby cells)
+                                if col > 0 and not pd.isna(df.iloc[i, col-1]):
+                                    prev_text = str(df.iloc[i, col-1]).strip()
+                                    if prev_text and len(prev_text) < 30:  # Only use if it's reasonably short
+                                        machine_candidate = f"{prev_text} {machine_candidate}"
+                                
+                                if col < df.shape[1]-1 and not pd.isna(df.iloc[i, col+1]):
+                                    next_text = str(df.iloc[i, col+1]).strip()
+                                    if next_text and len(next_text) < 30:
+                                        machine_candidate = f"{machine_candidate} {next_text}"
+                                
+                                # Clean up the machine name
+                                machine_candidate = " ".join(machine_candidate.split())  # Normalize whitespace
+                                if len(machine_candidate) > 5 and machine_candidate not in all_machine_names:
+                                    all_machine_names.append(machine_candidate)
                 
-                st.info(f"Vietnam data format detected - mencari machine {', '.join(machine_keywords)}")
+                # Add known machine types even if not found in the data
+                if not all_machine_names:
+                    all_machine_names.extend(["HASSIA REDATRON", "SACKLOK 00001"])
+                
+                st.info(f"Vietnam data format detected - ditemukan {len(all_machine_names)} nama mesin potensial")
 
+        # Group similar machine names - applied to both Kamboja and Vietnam data
         all_machine_names.sort(key=len, reverse=True)
-
+        
         machine_groups = {}
         processed_machines = set()
-        threshold = 0.6
+        threshold = 0.6  # Similarity threshold
 
+        # First pass to group similar machine names
         for name in all_machine_names:
             if name in processed_machines:
                 continue
@@ -313,12 +335,16 @@ def parse_nama_mesin_tab2(file):
             for m in similar_machines:
                 machine_groups[m] = canonical_name
 
-        # Apply specific rules for machine names
+        # Apply specific rules for machine names in both Kamboja and Vietnam data
         for name in list(machine_groups.keys()):
-            if "hassia" in name.lower() or "redatron" in name.lower():
+            name_lower = name.lower()
+            # Group HASSIA and REDATRON machines
+            if "hassia" in name_lower or "redatron" in name_lower:
                 machine_groups[name] = "HASSIA REDATRON"
-            elif "sacklok" in name.lower():
+            # Group SACKLOK machines
+            elif "sacklok" in name_lower:
                 machine_groups[name] = "SACKLOK 00001"
+            # Add more rules as needed for other machine types
 
         # Store batch numbers with their machine names
         batch_machine_mapping = {}
@@ -328,16 +354,7 @@ def parse_nama_mesin_tab2(file):
 
         # Process based on data format
         if is_vietnam_data:
-            # Initialize machine categories for Vietnam
-            mesin_batch_groups = {
-                "HASSIA REDATRON": [],
-                "SACKLOK 00001": []
-                # Tidak perlu menambahkan "Olsa Mames" sebagai kategori mesin
-            }
-            
-            # Initialize original machine names
-            for machine in mesin_batch_groups.keys():
-                mesin_original[machine] = [machine]
+            # For Vietnam data, we'll process differently but with similar grouping logic
             
             # Get valid batches from Olsa Mames filter in tab1
             valid_filter_batches = []
@@ -354,30 +371,68 @@ def parse_nama_mesin_tab2(file):
                     if batch not in valid_filter_batches:
                         continue  # Skip batches not in Olsa Mames filter
                     
-                    # Look for machine indicators in the row
+                    # Look for machine indicators in the entire row
                     row_str = ' '.join([str(df.iloc[i, j]).lower() for j in range(df.shape[1]) if not pd.isna(df.iloc[i, j])])
                     
-                    # Determine machine based on keywords
-                    if "hassia" in row_str or "redatron" in row_str:
-                        machine = "HASSIA REDATRON"
-                    elif "sacklok" in row_str:
-                        machine = "SACKLOK 00001"
-                    else:
-                        continue  # No recognized machine for this batch
+                    # Try to find the machine from the row text using our machine groups
+                    found_machine = False
+                    for machine_name in machine_groups.keys():
+                        if machine_name.lower() in row_str:
+                            # Get the canonical machine name for this machine
+                            machine = machine_groups[machine_name]
+                            found_machine = True
+                            
+                            # Initialize this machine group if needed
+                            if machine not in mesin_batch_groups:
+                                mesin_batch_groups[machine] = []
+                            if machine not in mesin_original:
+                                mesin_original[machine] = []
+                            
+                            # Add original machine name if not already present
+                            if machine_name not in mesin_original[machine]:
+                                mesin_original[machine].append(machine_name)
+                            
+                            # Add batch to appropriate machine group
+                            mesin_batch_groups[machine].append(batch)
+                            
+                            # Update batch-machine mapping
+                            if batch not in batch_machine_mapping:
+                                batch_machine_mapping[batch] = []
+                            if machine not in batch_machine_mapping[batch]:
+                                batch_machine_mapping[batch].append(machine)
+                            
+                            break  # Stop after finding first machine match
                     
-                    # Add batch to appropriate machine group
-                    mesin_batch_groups[machine].append(batch)
-                    
-                    # Update batch-machine mapping
-                    if batch not in batch_machine_mapping:
-                        batch_machine_mapping[batch] = []
-                    if machine not in batch_machine_mapping[batch]:
-                        batch_machine_mapping[batch].append(machine)
+                    # Fallback for rows without an explicit machine mention
+                    if not found_machine:
+                        # Use heuristics to determine machine type
+                        if "hassia" in row_str or "redatron" in row_str:
+                            machine = "HASSIA REDATRON"
+                        elif "sacklok" in row_str:
+                            machine = "SACKLOK 00001"
+                        else:
+                            # If no recognizable machine, assign to a default group
+                            machine = "UNKNOWN MACHINE"
+                        
+                        # Initialize this machine group if needed
+                        if machine not in mesin_batch_groups:
+                            mesin_batch_groups[machine] = []
+                        if machine not in mesin_original:
+                            mesin_original[machine] = [machine]
+                        
+                        # Add batch to appropriate machine group
+                        mesin_batch_groups[machine].append(batch)
+                        
+                        # Update batch-machine mapping
+                        if batch not in batch_machine_mapping:
+                            batch_machine_mapping[batch] = []
+                        if machine not in batch_machine_mapping[batch]:
+                            batch_machine_mapping[batch].append(machine)
             
             # Report findings
-            st.info(f"Vietnam data - filter Olsa Mames: {len(valid_filter_batches)} batch, " +
-                   f"HASSIA: {len(mesin_batch_groups['HASSIA REDATRON'])} batch, " +
-                   f"SACKLOK: {len(mesin_batch_groups['SACKLOK 00001'])} batch")
+            machine_counts = {k: len(v) for k, v in mesin_batch_groups.items()}
+            st.info(f"Vietnam data - filter Olsa Mames: {len(valid_filter_batches)} batch, " + 
+                   ", ".join([f"{k}: {v} batch" for k, v in machine_counts.items()]))
         else:
             # Standard processing for Kamboja data
             for i in range(len(df)):
