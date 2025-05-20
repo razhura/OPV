@@ -12,45 +12,42 @@ import json
 import os
 import numpy as npna
 
+# --- PENGATURAN HALAMAN HARUS JADI YANG PERTAMA ---
 st.set_page_config(page_title="Excel CQA Parser", layout="wide")
 
 # Inisialisasi session state untuk menyimpan nilai opacity
 if 'opacity' not in st.session_state:
-    st.session_state.opacity = 1.0  # Default opacity 1.0 (tidak transparan)
+    st.session_state.opacity = 0.5  # Awal 50% transparan
 
-# Fungsi untuk menambahkan background dari GitHub dengan overlay opacity
+# Fungsi untuk menambahkan background dan overlay dengan opacity
 def add_bg_from_github():
     github_image_url = "https://raw.githubusercontent.com/razhura/OPV/cfe3d71222414a3de87d2d4223ba8d393b1284f7/BG.jpg"
 
     st.markdown(f"""
         <style>
         .stApp {{
-            background-image: url("{github_image_url}");
+            background: url("{github_image_url}") no-repeat center center fixed;
             background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            background-attachment: fixed;
+            position: relative;
         }}
 
-        /* Overlay sebagai div biasa */
-        #overlay {{
+        .opacity-overlay {{
             position: fixed;
             top: 0;
             left: 0;
-            width: 100vw;
-            height: 100vh;
+            width: 100%;
+            height: 100%;
             background-color: rgba(255, 255, 255, {st.session_state.opacity});
-            z-index: -1;
+            z-index: 0;
         }}
 
-        /* Styling untuk container di Streamlit */
-        .st-emotion-cache-18ni7ap {{
-            background-color: rgba(255, 255, 255, {min(st.session_state.opacity + 0.1, 1.0)});
-            border-radius: 10px;
+        .main > div {{
+            position: relative;
+            z-index: 1;
         }}
         </style>
 
-        <div id="overlay"></div>
+        <div class="opacity-overlay"></div>
     """, unsafe_allow_html=True)
 
 # Panggil fungsi background
@@ -59,8 +56,7 @@ add_bg_from_github()
 # Sidebar untuk kontrol opacity
 with st.sidebar:
     st.subheader("Pengaturan Tampilan")
-
-    # Slider untuk mengatur opacity
+    
     new_opacity = st.slider(
         "Atur Opacity Background:",
         min_value=0.0,
@@ -70,7 +66,6 @@ with st.sidebar:
         format="%.1f"
     )
 
-    # Jika nilai opacity berubah, update session state dan refresh halaman
     if new_opacity != st.session_state.opacity:
         st.session_state.opacity = new_opacity
         st.rerun()
