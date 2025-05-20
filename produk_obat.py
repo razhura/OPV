@@ -142,7 +142,6 @@ def parse_kode_mesin_Kamboja(file):
         st.exception(e)  # Tampilkan detail error untuk debugging
         return None
     
-
 def parse_kode_mesin_Vietnam(file): 
     try:
         import pandas as pd
@@ -189,8 +188,7 @@ def parse_kode_mesin_Vietnam(file):
         st.write(f"Jumlah baris asli: {len(df)}")
         st.write(f"Jumlah batch unik: {len(vietnam_batches)}")
         
-        # PENTING: Simpan data ke session state untuk digunakan di tab lain
-        # Ini adalah kunci untuk memastikan data Vietnam tersedia di tab2
+        # Simpan data ke session state untuk digunakan di tab lain
         st.session_state.original_tab1_json = json.dumps(mesin_map)
         st.session_state.tab1_json = json.dumps(mesin_map)
         
@@ -213,7 +211,7 @@ def parse_kode_mesin_Vietnam(file):
             if not batches_to_keep:
                 st.warning("Tidak ada batch yang dapat disimpan dari mesin yang dipilih.")
             else:
-                # Gunakan original_df sebagai sumber untuk filtering
+                # Gunakan result_df sebagai sumber untuk filtering
                 filtered_rows = []
                 for i in range(len(original_df)):
                     if i == 0:  # Pertahankan header
@@ -242,17 +240,11 @@ def parse_kode_mesin_Vietnam(file):
                     
                 # Update session state untuk tab Vietnam
                 st.session_state.filtered_tab1_json = json.dumps(filtered_mesin_map)
-                st.session_state.tab1_json = json.dumps(filtered_mesin_map)  # Penting: Update tab1_json juga!
                 
                 return filtered_df
             
-        # Return mesin_map untuk memberikan informasi bahwa ada batch yang valid untuk tab2
-        # Ini yang penting - return value tidak harus DataFrame
-        # Yang penting tab1_json di session_state sudah diisi dengan data yang benar
-        return df
-    except Exception as e:
-        st.error(f"Error saat memproses file Vietnam: {str(e)}")
-        return None
+        # Return DataFrame asli jika tidak ada filtering
+        return result_df
     except Exception as e:
         st.error(f"Error saat memproses file Vietnam: {str(e)}")
         return None
@@ -522,7 +514,6 @@ def parse_batch_only_file(file):
         st.error(f"Gagal parsing file batch: {str(e)}")
         st.exception(e)
         return None
-
 def pisahkan_data_grinding_berdasarkan_mesin(file_grinding, reference_data):
     """
     Memisahkan file grinding menjadi beberapa bagian berdasarkan batch yang sudah diklasifikasi dengan nama mesin.
