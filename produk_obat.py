@@ -143,110 +143,67 @@ def parse_kode_mesin_Kamboja(file):
         return None
     
 def parse_kode_mesin_Vietnam(file): 
+
     try:
+
         import pandas as pd
         import streamlit as st
-        import json
-        
+        import json        
         # Baca file Excel
         df = pd.read_excel(file, header=None)
         
         # Simpan dataframe asli untuk JSON
         original_df = df.copy()
-        
+
         # Dictionary untuk menyimpan batch dari kolom A dengan label tetap "Olsa Mames"
-        vietnam_batches = []
-        
+        vietnam_batches = [] 
         # Loop melalui baris data mulai dari indeks 1 (baris kedua)
         # untuk mengabaikan baris pertama (indeks 0)
         for i in range(1, len(original_df)):
             # Ambil nomor batch dari kolom A (index 0)
             batch = str(original_df.iloc[i, 0]).strip()
-            
             # Tambahkan batch yang valid ke list
             if batch and batch.upper() != "NAN" and not pd.isna(batch):
                 vietnam_batches.append(batch)
-        
-        # Buat dictionary dengan satu kunci "Olsa Mames" dan semua batch
+            # Buat dictionary dengan satu kunci "Olsa Mames" dan semua batch
         mesin_map = {"Olsa Mames": vietnam_batches}
         
+
         # Buat ringkasan data
         summary_data = [{"Kode Mesin": "Olsa Mames", "Jumlah Batch": len(vietnam_batches)}]
         summary_df = pd.DataFrame(summary_data)
-        
+
+
         # Tampilkan dalam bentuk tabel ringkas
         st.write("🔍 Ringkasan Vietnam:")
         st.dataframe(summary_df)
-        
         # Buat DataFrame untuk tampilan batch
         result_df = pd.DataFrame({"Olsa Mames": pd.Series(vietnam_batches)})
-        
+
+
         st.write("📊 Detail Batch Vietnam:")
         st.dataframe(result_df)
-        
+
+    
         # Tampilkan informasi jumlah baris
         st.write(f"Jumlah baris asli: {len(df)}")
         st.write(f"Jumlah batch unik: {len(vietnam_batches)}")
+
         
         # Simpan data ke session state untuk digunakan di tab lain
         st.session_state.original_tab1_json = json.dumps(mesin_map)
         st.session_state.tab1_json = json.dumps(mesin_map)
+
         
-        # --- BAGIAN FILTERING DAN PENGHAPUSAN --- #
-        st.write("### Filter Batch Berdasarkan Kode Mesin")
-        
-        # Pilih mesin yang ingin disimpan batchnya
-        mesin_to_keep = st.multiselect(
-            "Pilih kode mesin yang batchnya ingin disimpan:",
-            options=list(mesin_map.keys())
-        )
-        
-        # Kumpulkan batch yang akan disimpan
-        batches_to_keep = []
-        for mesin in mesin_to_keep:
-            batches_to_keep.extend([b for b in mesin_map[mesin] if b is not None])
-            
-        # Terapkan filter jika tombol diklik dan ada mesin yang dipilih
-        if mesin_to_keep and st.button("Terapkan Filter"):
-            if not batches_to_keep:
-                st.warning("Tidak ada batch yang dapat disimpan dari mesin yang dipilih.")
-            else:
-                # Gunakan result_df sebagai sumber untuk filtering
-                filtered_rows = []
-                for i in range(len(original_df)):
-                    if i == 0:  # Pertahankan header
-                        filtered_rows.append(original_df.iloc[i])
-                    else:
-                        batch = str(original_df.iloc[i, 0]).strip()
-                        if batch in batches_to_keep or batch == "" or pd.isna(batch) or batch.upper() == "NAN":
-                            filtered_rows.append(original_df.iloc[i])
-            
-                # Buat DataFrame hasil filter
-                filtered_df = pd.DataFrame(filtered_rows)
-                
-                # Tampilkan hasil
-                st.write(f"### Hasil Filter (Menyimpan {len(batches_to_keep)} batch)")
-                st.write(f"Jumlah baris sebelum filter: {len(original_df)}")
-                st.write(f"Jumlah baris setelah filter: {len(filtered_df)}")
-                st.dataframe(filtered_df)
-                
-                # Update session state dengan data yang telah difilter
-                st.session_state.filtered_df = filtered_df
-                
-                # Buat dictionary baru hanya dengan mesin yang dipilih
-                filtered_mesin_map = {}
-                for mesin in mesin_to_keep:
-                    filtered_mesin_map[mesin] = [b for b in mesin_map[mesin] if b is not None]
-                    
-                # Update session state untuk tab Vietnam
-                st.session_state.filtered_tab1_json = json.dumps(filtered_mesin_map)
-                
-                return filtered_df
-            
-        # Return DataFrame asli jika tidak ada filtering
+
+        # Return DataFrame untuk tampilan
         return result_df
     except Exception as e:
         st.error(f"Error saat memproses file Vietnam: {str(e)}")
+        return None
+    except Exception as e:
+        st.error(f"Gagal parsing file Vietnam: {str(e)}")
+        st.exception(e)  # Tampilkan detail error untuk debugging
         return None
 def parse_nama_mesin_tab2(file):
     try:
