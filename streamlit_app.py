@@ -12,11 +12,14 @@ import json
 import os
 import numpy as npna
 
+# --- PENGATURAN HALAMAN HARUS JADI YANG PERTAMA ---
+st.set_page_config(page_title="Excel CQA Parser", layout="wide")
+
 # Fungsi untuk menambahkan background dari GitHub
 def add_bg_from_github():
     # Ganti dengan URL gambar dari GitHub repo Anda
-    # Format GitHub raw URL: https://github.com/razhura/OPV/blob/63f9525f82b817c47d7574ec2563f2f4712a5cd4/BG.jpeg
-    github_image_url = "https://github.com/razhura/OPV/blob/63f9525f82b817c47d7574ec2563f2f4712a5cd4/BG.jpeg"
+    # Format GitHub raw URL: https://raw.githubusercontent.com/username/repo/main/path/to/image.jpg
+    github_image_url = "https://raw.githubusercontent.com/username/repo/main/path/to/your/image.jpg"
     
     # CSS untuk mengatur background
     bg_style = f"""
@@ -41,10 +44,8 @@ def add_bg_from_github():
     # Menyisipkan CSS ke aplikasi
     st.markdown(bg_style, unsafe_allow_html=True)
 
-# Tambahkan kode ini di awal aplikasi Anda (sebelum st.set_page_config)
+# Panggil fungsi background SETELAH st.set_page_config
 add_bg_from_github()
-
-st.set_page_config(page_title="Excel CQA Parser", layout="wide")
 
 # Modul internal
 from navbar import render_navbar
