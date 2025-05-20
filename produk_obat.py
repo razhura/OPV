@@ -214,7 +214,17 @@ def parse_nama_mesin_tab2(file):
         import re
         import datetime
         import numpy as np
-        import os  # Added missing import
+        import os
+
+        # Debug information to help troubleshoot
+        st.write("### Debug Information")
+        if 'tab1_json' in st.session_state:
+            tab1_data = json.loads(st.session_state.tab1_json)
+            st.write(f"Tab1 JSON data available with {len(tab1_data)} mesin keys")
+            for key, batches in tab1_data.items():
+                st.write(f"- {key}: {len([b for b in batches if b is not None])} valid batches")
+        else:
+            st.write("No tab1_json data found in session state")
 
         df = pd.read_excel(file, header=None)
 
@@ -236,6 +246,13 @@ def parse_nama_mesin_tab2(file):
                 machine_name = str(df.iloc[i, 5]).strip()
                 if machine_name and machine_name.upper() != "NAN" and not pd.isna(machine_name):
                     all_machine_names.append(machine_name)
+
+        # If no machine names found, add a default one for Vietnam data
+        if not all_machine_names and 'tab1_json' in st.session_state:
+            tab1_data = json.loads(st.session_state.tab1_json)
+            if "Olsa Mames" in tab1_data:
+                all_machine_names.append("Olsa Mames")
+                st.info("Vietnam data format detected - using 'Olsa Mames' as default machine name")
 
         all_machine_names.sort(key=len, reverse=True)
 
@@ -270,36 +287,57 @@ def parse_nama_mesin_tab2(file):
         current_mesin = None
         mesin_original = {}
 
-        for i in range(len(df)):
-            if str(df.iloc[i, 3]).strip() == "Nama Mesin":
-                original_mesin = str(df.iloc[i, 5]).strip()
-                if not original_mesin or original_mesin.upper() in ["NAN", "-", ""] or pd.isna(original_mesin):
-                    current_mesin = None
-                    continue
-                if original_mesin in machine_groups:
-                    current_mesin = machine_groups[original_mesin]
-                else:
-                    current_mesin = original_mesin
-                if current_mesin not in mesin_original:
-                    mesin_original[current_mesin] = []
-                if original_mesin not in mesin_original[current_mesin]:
-                    mesin_original[current_mesin].append(original_mesin)
-                if current_mesin and current_mesin not in mesin_batch_groups:
-                    mesin_batch_groups[current_mesin] = []
-            elif str(df.iloc[i, 3]).strip() == "Tanggal Kalibrasi":
-                continue
-            elif current_mesin is not None:
-                batch = str(df.iloc[i, 0]).strip()
-                if batch and batch.upper() != "NAN" and not pd.isna(batch) and batch != "-":
-                    # Store batch with its machine name information
-                    if batch not in batch_machine_mapping:
-                        batch_machine_mapping[batch] = []
-                    
-                    # Store the current machine as a valid machine for this batch
-                    if current_mesin not in batch_machine_mapping[batch]:
-                        batch_machine_mapping[batch].append(current_mesin)
-                    
-                    mesin_batch_groups[current_mesin].append(batch)
+        # Special case for Vietnam data format
+        if 'tab1_json' in st.session_state:
+            tab1_data = json.loads(st.session_state.tab1_json)
+            if "Olsa Mames" in tab1_data and len(all_machine_names) <= 1:
+                # For Vietnam data, we'll create a simplified structure
+                mesin_batch_groups["Olsa Mames"] = []
+                mesin_original["Olsa Mames"] = ["Olsa Mames"]
+                
+                # Get all batches from the file
+                for i in range(len(df)):
+                    batch = str(df.iloc[i, 0]).strip()
+                    if batch and batch.upper() != "NAN" and not pd.isna(batch) and batch != "-":
+                        mesin_batch_groups["Olsa Mames"].append(batch)
+                        if batch not in batch_machine_mapping:
+                            batch_machine_mapping[batch] = []
+                        if "Olsa Mames" not in batch_machine_mapping[batch]:
+                            batch_machine_mapping[batch].append("Olsa Mames")
+                
+                st.info(f"Vietnam mode: Found {len(mesin_batch_groups['Olsa Mames'])} batches for 'Olsa Mames'")
+            else:
+                # Standard processing for Kamboja data
+                for i in range(len(df)):
+                    if str(df.iloc[i, 3]).strip() == "Nama Mesin":
+                        original_mesin = str(df.iloc[i, 5]).strip()
+                        if not original_mesin or original_mesin.upper() in ["NAN", "-", ""] or pd.isna(original_mesin):
+                            current_mesin = None
+                            continue
+                        if original_mesin in machine_groups:
+                            current_mesin = machine_groups[original_mesin]
+                        else:
+                            current_mesin = original_mesin
+                        if current_mesin not in mesin_original:
+                            mesin_original[current_mesin] = []
+                        if original_mesin not in mesin_original[current_mesin]:
+                            mesin_original[current_mesin].append(original_mesin)
+                        if current_mesin and current_mesin not in mesin_batch_groups:
+                            mesin_batch_groups[current_mesin] = []
+                    elif str(df.iloc[i, 3]).strip() == "Tanggal Kalibrasi":
+                        continue
+                    elif current_mesin is not None:
+                        batch = str(df.iloc[i, 0]).strip()
+                        if batch and batch.upper() != "NAN" and not pd.isna(batch) and batch != "-":
+                            # Store batch with its machine name information
+                            if batch not in batch_machine_mapping:
+                                batch_machine_mapping[batch] = []
+                            
+                            # Store the current machine as a valid machine for this batch
+                            if current_mesin not in batch_machine_mapping[batch]:
+                                batch_machine_mapping[batch].append(current_mesin)
+                            
+                            mesin_batch_groups[current_mesin].append(batch)
 
         st.write("### Detail Grup Mesin")
         for canonical, originals in mesin_original.items():
@@ -403,7 +441,7 @@ def parse_nama_mesin_tab2(file):
     except Exception as e:
         st.error(f"Gagal parsing file: {str(e)}")
         st.exception(e)
-        return None  # Added explicit return None for exception case
+        return None  # Added explicit return None for exception caseurn None for exception case
         
 def save_kode_mesin_batch_reference(mesin_map, filename="kode_mesin_batch_reference.json"):
     """
