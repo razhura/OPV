@@ -256,11 +256,11 @@ def parse_nama_mesin_tab2(file):
                 # For Vietnam data, we'll extract machine names from the data itself
                 # Based on patterns like "HASSIA", "SACKLOK", etc.
                 
-                # Add default machine name as fallback
-                all_machine_names.append("Olsa Mames")
+                # Do NOT add Olsa Mames as a machine name - it will be used as a filter
+                # Instead just scan for HASSIA and SACKLOK
                 
                 # Scan the file for potential machine names in Vietnam data
-                machine_keywords = ["hassia", "sacklok", "redatron", "olsa", "mames"]
+                machine_keywords = ["hassia", "sacklok", "redatron"]
                 
                 for i in range(len(df)):
                     for col in range(df.shape[1]):  # Check all columns
@@ -271,7 +271,7 @@ def parse_nama_mesin_tab2(file):
                                 all_machine_names.append(cell_value.upper())
                                 break
                 
-                st.info(f"Vietnam data format detected - found {len(all_machine_names)} potential machine names")
+                st.info(f"Vietnam data format detected - mencari machine {', '.join(machine_keywords)}")
 
         all_machine_names.sort(key=len, reverse=True)
 
@@ -312,18 +312,29 @@ def parse_nama_mesin_tab2(file):
             # Initialize machine categories for Vietnam
             mesin_batch_groups = {
                 "HASSIA REDATRON": [],
-                "SACKLOK 00001": [],
-                "Olsa Mames": []  # Default for unclassified
+                "SACKLOK 00001": []
+                # Tidak perlu menambahkan "Olsa Mames" sebagai kategori mesin
             }
             
             # Initialize original machine names
             for machine in mesin_batch_groups.keys():
                 mesin_original[machine] = [machine]
             
+            # Get valid batches from Olsa Mames filter in tab1
+            valid_filter_batches = []
+            if 'tab1_json' in st.session_state:
+                tab1_data = json.loads(st.session_state.tab1_json)
+                if "Olsa Mames" in tab1_data:
+                    valid_filter_batches = [str(b).strip() for b in tab1_data["Olsa Mames"] if b is not None]
+            
             # Process all batches from the file
             for i in range(len(df)):
                 batch = str(df.iloc[i, 0]).strip()
                 if batch and batch.upper() != "NAN" and not pd.isna(batch) and batch != "-":
+                    # Check if batch is in valid filter batches from Olsa Mames
+                    if batch not in valid_filter_batches:
+                        continue  # Skip batches not in Olsa Mames filter
+                    
                     # Look for machine indicators in the row
                     row_str = ' '.join([str(df.iloc[i, j]).lower() for j in range(df.shape[1]) if not pd.isna(df.iloc[i, j])])
                     
@@ -333,7 +344,7 @@ def parse_nama_mesin_tab2(file):
                     elif "sacklok" in row_str:
                         machine = "SACKLOK 00001"
                     else:
-                        machine = "Olsa Mames"  # Default
+                        continue  # No recognized machine for this batch
                     
                     # Add batch to appropriate machine group
                     mesin_batch_groups[machine].append(batch)
@@ -345,9 +356,9 @@ def parse_nama_mesin_tab2(file):
                         batch_machine_mapping[batch].append(machine)
             
             # Report findings
-            st.info(f"Vietnam data processing - HASSIA: {len(mesin_batch_groups['HASSIA REDATRON'])} batches, " +
-                   f"SACKLOK: {len(mesin_batch_groups['SACKLOK 00001'])} batches, " +
-                   f"Other: {len(mesin_batch_groups['Olsa Mames'])} batches")
+            st.info(f"Vietnam data - filter Olsa Mames: {len(valid_filter_batches)} batch, " +
+                   f"HASSIA: {len(mesin_batch_groups['HASSIA REDATRON'])} batch, " +
+                   f"SACKLOK: {len(mesin_batch_groups['SACKLOK 00001'])} batch")
         else:
             # Standard processing for Kamboja data
             for i in range(len(df)):
