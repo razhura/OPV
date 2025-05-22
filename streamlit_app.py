@@ -21,15 +21,12 @@ st.set_page_config(page_title="Excel CQA Parser", layout="wide")
 if 'bg_toggle' not in st.session_state:
     st.session_state.bg_toggle = False  # Default: opacity 1.0 (background putih)
 
-# Fungsi untuk menambahkan background dari GitHub dengan opacity yang bisa diatur
 def add_bg_from_github():
     github_image_url = "https://raw.githubusercontent.com/razhura/OPV/42ec707f734455ab26e07e844a05104c52d9a35c/BG2.jpg"
     opacity = 0.0 if st.session_state.bg_toggle else 1.0
 
-    # CSS untuk background dan elemen lain agar ikut transparan
     bg_style = f"""
     <style>
-    /* Background utama dengan overlay opacity */
     .stApp {{
         background: linear-gradient(rgba(255,255,255,{opacity}), rgba(255,255,255,{opacity})), 
                     url("{github_image_url}");
@@ -39,35 +36,53 @@ def add_bg_from_github():
         background-attachment: fixed;
     }}
 
-    /* Sidebar transparan */
     section[data-testid="stSidebar"] > div {{
         background-color: rgba(255, 255, 255, {opacity});
     }}
 
-    /* Header transparan */
     header[data-testid="stHeader"] {{
         background-color: rgba(255, 255, 255, {opacity});
     }}
 
-    /* Kontainer utama transparan */
     .st-emotion-cache-18ni7ap {{
         background-color: rgba(255, 255, 255, {opacity + 0.1});
         border-radius: 10px;
+    }}
+    
+    /* CSS untuk posisi tombol di bawah */
+    div[data-testid="stSidebarUserContent"] {{
+        display: flex;
+        flex-direction: column;
+        height: 95vh;
+    }}
+    
+    div[data-testid="stSidebarUserContent"] > :last-child {{
+        margin-top: auto;
     }}
     </style>
     """
     st.markdown(bg_style, unsafe_allow_html=True)
 
-# Panggil fungsi background
 add_bg_from_github()
 
-# Sidebar untuk kontrol opacity dengan tombol toggle
 with st.sidebar:
     st.subheader("Pengaturan Tampilan")
     
-    # Tombol toggle dengan ikon setting
-    button_label = "⚙️ Background: ON" if st.session_state.bg_toggle else "⚙️ Background: OFF"
-    if st.button(button_label):
+    # Tampilkan status background
+    bg_status = "ON" if st.session_state.bg_toggle else "OFF"
+    st.markdown(f"- **Background**: {bg_status}")
+    
+    # Navigasi
+    st.markdown("""
+    - Navigasi  
+      - Critical Quality Attribute (CQA)  
+      - In Process Control (IPC)  
+      - CPP BAHAN  
+      - Produk Obat Test CPP Konimax (LutfanTZY Jaya Lovers)
+    """)
+    
+    # Tombol toggle di bagian bawah
+    if st.button(f"⚙️ Toggle Background ({bg_status})"):
         st.session_state.bg_toggle = not st.session_state.bg_toggle
         st.rerun()
 
