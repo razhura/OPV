@@ -112,7 +112,7 @@ if menu == "Produk Obat Test CPP Konimax (LutfanTZY Jaya Lovers)":
     st.stop()
     
 # Jika tidak pilih IPC atau CPP BAHAN, jalankan halaman CQA
-st.title("OPV KONIMEX V4.6")
+st.title("OPV KONIMEX V4.5")
 st.header("📊 Critical Quality Attribute (CQA)")
 
 # Fungsi parsing header bertingkat dari baris 4-6
