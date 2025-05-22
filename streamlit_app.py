@@ -61,16 +61,42 @@ def add_bg_from_github():
 # Panggil fungsi background
 add_bg_from_github()
 
-# Sidebar untuk kontrol opacity dengan tombol toggle
+
+# Inisialisasi session state jika belum ada
+if 'bg_toggle' not in st.session_state:
+    st.session_state.bg_toggle = True
+
+# Inject CSS untuk menempelkan tombol ke bawah sidebar
+st.markdown(
+    """
+    <style>
+    .bottom-sidebar-button {
+        position: absolute;
+        bottom: 1rem;
+        width: 100%;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Sidebar dengan tombol toggle di dasar
 with st.sidebar:
+    # (Opsional) Konten sidebar lain di sini
+    st.write("Konten sidebar lainnya...")
 
-    
-    # Tombol toggle dengan ikon setting
-    button_label = "⚙️ Background: ON" if st.session_state.bg_toggle else "⚙️ Background: OFF"
-    if st.button(button_label):
-        st.session_state.bg_toggle = not st.session_state.bg_toggle
-        st.rerun()
+    # Placeholder untuk menempatkan tombol di dasar
+    bottom_placeholder = st.empty()
+    with bottom_placeholder.container():
+        st.markdown('<div class="bottom-sidebar-button">', unsafe_allow_html=True)
 
+        # Tombol toggle dengan ikon setting
+        button_label = "⚙️ Background: ON" if st.session_state.bg_toggle else "⚙️ Background: OFF"
+        if st.button(button_label):
+            st.session_state.bg_toggle = not st.session_state.bg_toggle
+            st.rerun()
+
+        st.markdown('</div>', unsafe_allow_html=True)
 
     
 
