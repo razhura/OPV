@@ -5,4 +5,4 @@ matplotlib
 odfpy
 plotly
 numpy
-flask
+
