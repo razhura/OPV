@@ -63,7 +63,7 @@ add_bg_from_github()
 
 # Sidebar untuk kontrol opacity dengan tombol toggle
 with st.sidebar:
-    st.subheader("Pengaturan Tampilan")
+
     
     # Tombol toggle dengan ikon setting
     button_label = "⚙️ Background: ON" if st.session_state.bg_toggle else "⚙️ Background: OFF"
