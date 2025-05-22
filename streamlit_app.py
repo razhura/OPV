@@ -23,7 +23,7 @@ if 'bg_toggle' not in st.session_state:
 
 # Fungsi untuk menambahkan background dari GitHub dengan opacity yang bisa diatur
 def add_bg_from_github():
-    github_image_url = "https://raw.githubusercontent.com/razhura/OPV/42ec707f734455ab26e07e844a05104c52d9a35c/BG2.jpg"
+    github_image_url = "https://raw.githubusercontent.com/razhura/OPV/4d1c83c32af95e755b22c7bb22af7b8dbc4b9d4f/BG.jpg"
     opacity = 0.0 if st.session_state.bg_toggle else 1.0
 
     # CSS untuk background dan elemen lain agar ikut transparan
