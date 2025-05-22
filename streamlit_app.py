@@ -17,14 +17,14 @@ import numpy as npna
 
 st.set_page_config(page_title="Excel CQA Parser", layout="wide")
 
-# Inisialisasi session state untuk menyimpan nilai opacity
-if 'opacity' not in st.session_state:
-    st.session_state.opacity = 1.0  # Default opacity (penuh putih)
+# Inisialisasi session state untuk toggle background
+if 'bg_toggle' not in st.session_state:
+    st.session_state.bg_toggle = False  # Default: opacity 1.0 (background putih)
 
 # Fungsi untuk menambahkan background dari GitHub dengan opacity yang bisa diatur
 def add_bg_from_github():
     github_image_url = "https://raw.githubusercontent.com/razhura/OPV/42ec707f734455ab26e07e844a05104c52d9a35c/BG2.jpg"
-    opacity = st.session_state.opacity
+    opacity = 0.0 if st.session_state.bg_toggle else 1.0
 
     # CSS untuk background dan elemen lain agar ikut transparan
     bg_style = f"""
@@ -61,23 +61,14 @@ def add_bg_from_github():
 # Panggil fungsi background
 add_bg_from_github()
 
-# Sidebar untuk kontrol opacity
+# Sidebar untuk kontrol opacity dengan tombol toggle
 with st.sidebar:
     st.subheader("Pengaturan Tampilan")
     
-    # Slider untuk mengatur opacity
-    new_opacity = st.slider(
-        "Atur Opacity Background:", 
-        min_value=0.0, 
-        max_value=1.0, 
-        value=st.session_state.opacity,
-        step=0.1,
-        format="%.1f"
-    )
-    
-    # Jika nilai opacity berubah, update session state dan refresh halaman
-    if new_opacity != st.session_state.opacity:
-        st.session_state.opacity = new_opacity
+    # Tombol toggle dengan ikon setting
+    button_label = "⚙️ Background: ON" if st.session_state.bg_toggle else "⚙️ Background: OFF"
+    if st.button(button_label):
+        st.session_state.bg_toggle = not st.session_state.bg_toggle
         st.rerun()
 
 
