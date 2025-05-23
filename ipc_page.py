@@ -32,35 +32,32 @@ def calculate_statistics(df):
 
 def parse_kekerasan_excel(file):
     try:
-        # Baca file (ODS otomatis oleh pandas)
         df = pd.read_excel(file, header=None, engine='odf')
 
-        # Cek ukuran minimal DataFrame agar akses tidak error
+        # Validasi ukuran minimal file
         if df.shape[0] < 7 or df.shape[1] < 6:
             st.error("Template tidak sesuai: data minimal tidak terpenuhi.")
             return None
 
-        # Ambil baris ke-2 (index 1) untuk nama batch dari kolom E ke kanan
+        # Ambil nama batch dari baris ke-2 (index 1), mulai dari kolom E (index 4)
         batch_row = df.iloc[1]
         batch_names = batch_row[4:].dropna().values
         batch_cols = batch_row[4:].dropna().index
 
         result_df = pd.DataFrame()
 
-        # Ambil data dari baris 3-7 (E3-E7 dan F3-F7)
         for idx, col in enumerate(batch_cols):
             try:
                 batch = batch_names[idx]
-
-                # Data E3-E7
-                data_e = df.iloc[2:7, col]
-                # Data F3-F7
-                data_f = df.iloc[2:7, col + 1]
-
+                data_e = df.iloc[2:7, col]       # E3-E7
+                data_f = df.iloc[2:7, col + 1]   # F3-F7
                 values = pd.concat([data_e, data_f], ignore_index=True)
                 values = pd.to_numeric(values, errors='coerce').dropna()
 
-                result_df[batch] = values
+                if len(values) == 10:
+                    result_df[batch] = values
+                else:
+                    st.warning(f"Data batch {batch} tidak lengkap. Diabaikan.")
             except Exception as e:
                 st.warning(f"Batch {batch} tidak valid: {e}")
                 continue
@@ -70,8 +67,10 @@ def parse_kekerasan_excel(file):
             return None
 
         result_df.index = range(1, len(result_df) + 1)
-        stats_df = calculate_statistics(result_df)
+        st.write("Data Keseragaman Bobot Terstruktur:")
+        st.dataframe(result_df)
 
+        stats_df = calculate_statistics(result_df)
         st.write("Statistik Data Kekerasan:")
         st.dataframe(stats_df.style.format("{:.4f}"))
 
