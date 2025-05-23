@@ -84,7 +84,7 @@ from filter_labelqc import filter_labelqc
 from produk_obat import tampilkan_obat
 
 # --- Navigasi
-menu = st.sidebar.radio("Navigasi", ["Critical Quality Attribute (CQA)", "In Process Control (IPC)", "CPP BAHAN", "Produk Obat Test CPP Konimax (LutfanTZY Jaya Lovers)"])
+menu = st.sidebar.radio("Navigasi", ["Critical Quality Attribute (CQA)", "In Process Control (IPC)", "CPP BAHAN", "CPP Produk Bahan Obat"])
 
 # --- Logika Halaman
 if menu == "In Process Control (IPC)":
@@ -107,7 +107,7 @@ if menu == "CPP BAHAN":
 
     st.stop()
 
-if menu == "Produk Obat Test CPP Konimax (LutfanTZY Jaya Lovers)": 
+if menu == "CPP Produk Bahan Obat": 
     tampilkan_obat() 
     st.stop()
     
