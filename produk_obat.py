@@ -669,26 +669,31 @@ def pisahkan_data_grinding_berdasarkan_mesin(file_grinding, reference_data):
     Header "Nomor Batch" selalu di A1, tapi data bisa mulai dari baris 2, 3, dst (skip baris kosong).
     """
     try:
-        # Baca file Excel dengan header di baris 1
-        df = pd.read_excel(file_grinding, header=0)
+        # Baca file Excel dengan header di baris 1, tapi tetap baca semua baris (termasuk yang kosong)
+        df = pd.read_excel(file_grinding, header=0, keep_default_na=False)
         
         # Pastikan kolom "Nomor Batch" ada
         if "Nomor Batch" not in df.columns:
             raise ValueError("Kolom 'Nomor Batch' tidak ditemukan dalam file grinding.")
         
-        # Bersihkan kolom Nomor Batch dari spasi
+        # Konversi ke string dan bersihkan dari spasi, tapi jangan hilangkan baris kosong dulu
         df["Nomor Batch"] = df["Nomor Batch"].astype(str).str.strip()
         
-        # Hapus baris yang kosong, NaN, atau 'nan' di kolom Nomor Batch
+        # Sekarang hapus baris yang benar-benar kosong di kolom Nomor Batch
         df_clean = df[
-            df["Nomor Batch"].notna() & 
             (df["Nomor Batch"] != '') & 
             (df["Nomor Batch"] != 'nan') &
-            (df["Nomor Batch"] != 'NaN')
+            (df["Nomor Batch"] != 'NaN') &
+            (df["Nomor Batch"] != 'None')
         ].copy()
         
         # Reset index setelah filtering
         df_clean.reset_index(drop=True, inplace=True)
+        
+        # Debug: print untuk melihat data yang terbaca
+        print(f"Total baris setelah cleaning: {len(df_clean)}")
+        if len(df_clean) > 0:
+            print(f"5 batch pertama: {df_clean['Nomor Batch'].head().tolist()}")
         
         # Inisialisasi hasil per mesin
         hasil_per_mesin = {}
