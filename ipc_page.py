@@ -31,53 +31,51 @@ def calculate_statistics(df):
 
 
 def parse_kekerasan_excel(file):
-    """
-    Parsing untuk template Excel pengujian Kekerasan (format stacking E3-E7, F3-F7)
-    """
     try:
-        df = pd.read_excel(file, header=None)
+        # Baca file (ODS otomatis oleh pandas)
+        df = pd.read_excel(file, header=None, engine='odf')
 
-        # Ambil data dari sel E3-E7 dan F3-F7
-        data_rows = list(range(2, 7))  # baris 3 sampai 7 (index mulai dari 0)
-        data_cols_e = 4  # kolom E (index 4)
-        data_cols_f = 5  # kolom F (index 5)
+        # Cek ukuran minimal DataFrame agar akses tidak error
+        if df.shape[0] < 7 or df.shape[1] < 6:
+            st.error("Template tidak sesuai: data minimal tidak terpenuhi.")
+            return None
 
-        # Ambil semua kolom nomor batch dari baris ke-1 (index 0), mulai dari kolom 4 ke kanan
-        batch_ids = df.iloc[1, 4:].dropna().index
-        batch_names = df.iloc[1, 4:].dropna().values
+        # Ambil baris ke-2 (index 1) untuk nama batch dari kolom E ke kanan
+        batch_row = df.iloc[1]
+        batch_names = batch_row[4:].dropna().values
+        batch_cols = batch_row[4:].dropna().index
 
         result_df = pd.DataFrame()
 
-        for idx, col in enumerate(batch_ids):
-            batch = batch_names[idx]
+        # Ambil data dari baris 3-7 (E3-E7 dan F3-F7)
+        for idx, col in enumerate(batch_cols):
+            try:
+                batch = batch_names[idx]
 
-            # Ambil data dari kolom E dan F (masing-masing 5 baris data)
-            values_e = df.iloc[data_rows, col]
-            values_f = df.iloc[data_rows, col + 1]  # diasumsikan kolom F setelah E
+                # Data E3-E7
+                data_e = df.iloc[2:7, col]
+                # Data F3-F7
+                data_f = df.iloc[2:7, col + 1]
 
-            stacked = pd.concat([values_e, values_f], ignore_index=True)
-            stacked = pd.to_numeric(stacked, errors='coerce').dropna()
+                values = pd.concat([data_e, data_f], ignore_index=True)
+                values = pd.to_numeric(values, errors='coerce').dropna()
 
-            result_df[batch] = stacked
+                result_df[batch] = values
+            except Exception as e:
+                st.warning(f"Batch {batch} tidak valid: {e}")
+                continue
 
-        # Periksa apakah dataframe kosong
         if result_df.empty:
             st.error("Tidak ada data valid yang dapat diproses.")
             return None
 
-        # Set index mulai dari 1
         result_df.index = range(1, len(result_df) + 1)
-
-        # Hitung statistik
         stats_df = calculate_statistics(result_df)
 
-        # Tampilkan hasil di Streamlit
         st.write("Statistik Data Kekerasan:")
         st.dataframe(stats_df.style.format("{:.4f}"))
 
-        # Gabungkan dataframe untuk ekspor
         export_df = pd.concat([result_df, stats_df])
-
         return export_df
 
     except Exception as e:
