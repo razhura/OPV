@@ -250,6 +250,20 @@ def parse_nama_mesin_tab2(file):
 
         st.write("📋 Informasi File:")
         st.write(f"- Jumlah baris: {len(df)}")
+        
+        # TAMBAHAN: Debug untuk melihat struktur data
+        st.write("### Preview Data (10 baris pertama)")
+        st.dataframe(df.head(10))
+        
+        # Debug untuk kolom D dan E
+        st.write("### Debug Kolom D dan E")
+        for i in range(min(20, len(df))):
+            col_d = str(df.iloc[i, 3]).strip() if not pd.isna(df.iloc[i, 3]) else "NaN"
+            col_e = str(df.iloc[i, 4]).strip() if not pd.isna(df.iloc[i, 4]) else "NaN"
+            if col_d in ["Nama Mesin", "Tanggal Kalibrasi Ulang"] or col_e in ["Nama Mesin", "Tanggal Kalibrasi Ulang"]:
+                st.write(f"Baris {i}: Kolom D='{col_d}', Kolom E='{col_e}'")
+        
+        st.write("---")
 
         def similarity_score(str1, str2):
             str1_norm = ' '.join(str1.lower().split()) if isinstance(str1, str) else ""
@@ -405,29 +419,9 @@ def parse_nama_mesin_tab2(file):
                     
                     # Fallback for rows without an explicit machine mention
                     if not found_machine:
-                        # Use heuristics to determine machine type
-                        if "hassia" in row_str or "redatron" in row_str:
-                            machine = "HASSIA REDATRON"
-                        elif "sacklok" in row_str:
-                            machine = "SACKLOK 00001"
-                        else:
-                            # If no recognizable machine, assign to a default group
-                            machine = "UNKNOWN MACHINE"
-                        
-                        # Initialize this machine group if needed
-                        if machine not in mesin_batch_groups:
-                            mesin_batch_groups[machine] = []
-                        if machine not in mesin_original:
-                            mesin_original[machine] = [machine]
-                        
-                        # Add batch to appropriate machine group
-                        mesin_batch_groups[machine].append(batch)
-                        
-                        # Update batch-machine mapping
-                        if batch not in batch_machine_mapping:
-                            batch_machine_mapping[batch] = []
-                        if machine not in batch_machine_mapping[batch]:
-                            batch_machine_mapping[batch].append(machine)
+                        # Skip batches that don't have clear machine association
+                        # instead of assigning to UNKNOWN MACHINE
+                        continue
             
             # Report findings
             machine_counts = {k: len(v) for k, v in mesin_batch_groups.items()}
@@ -451,9 +445,16 @@ def parse_nama_mesin_tab2(file):
                         mesin_original[current_mesin].append(original_mesin)
                     if current_mesin and current_mesin not in mesin_batch_groups:
                         mesin_batch_groups[current_mesin] = []
-                # PERUBAHAN: Skip "Tanggal Kalibrasi Ulang" rows completely
+                # PERUBAHAN: Handle "Tanggal Kalibrasi Ulang" - reset current_mesin to None
                 elif str(df.iloc[i, 3]).strip() == "Tanggal Kalibrasi Ulang":
-                    # Skip this row entirely - don't process calibration date data
+                    # Reset current machine to None so subsequent batches are ignored
+                    # This prevents batches under calibration date from being processed
+                    current_mesin = None
+                    continue
+                # PERUBAHAN: Juga check kolom E (index 4) untuk "Tanggal Kalibrasi Ulang"
+                elif str(df.iloc[i, 4]).strip() == "Tanggal Kalibrasi Ulang":
+                    # Reset current machine to None
+                    current_mesin = None
                     continue
                 elif current_mesin is not None:
                     batch = str(df.iloc[i, 0]).strip()
@@ -777,7 +778,7 @@ def tampilkan_obat():
     
     with tab1:
         # Kode tab1 yang sudah ada...
-        st.header("Pengelompokan Batch dengan Kode Mesin")
+        st.header("Pengelompokan Batch dengan Kode Mesin 1.1")
         st.write("Upload file Excel yang berisi informasi batch dan kode mesin.")
         
         # Menambahkan radio button untuk memilih opsi
