@@ -68,7 +68,6 @@ def parse_kekerasan_excel(file):
                     values = values[:10] if len(values) > 10 else values
                     result_df[str(batch_name)] = values
                     batch_names.append(str(batch_name))
-                    st.write(f"Batch {batch_name} berhasil diproses dengan {len(values)} data")
                 else:
                     st.warning(f"Data batch {batch_name} tidak lengkap ({len(values)} data). Diabaikan.")
                 
