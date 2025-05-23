@@ -34,38 +34,67 @@ def parse_kekerasan_excel(file):
     try:
         df = pd.read_excel(file, header=None, engine='odf')
         # Validasi ukuran minimal file
-        if df.shape[0] < 7 or df.shape[1] < 7:
+        if df.shape[0] < 10 or df.shape[1] < 6:
             st.error("Template tidak sesuai: data minimal tidak terpenuhi.")
             return None
         
-        # Ambil nama batch dari baris ke-2 (index 1), mulai dari kolom E (index 4)
-        batch_names = df.iloc[1, 4:].dropna().values
+        # Cari semua batch berdasarkan pola data
         result_df = pd.DataFrame()
+        batch_names = []
         
-        for i, batch in enumerate(batch_names):
+        # Mulai dari baris 2 (index 2) untuk batch pertama
+        current_row = 2
+        batch_counter = 1
+        
+        while current_row < df.shape[0] - 7:  # Pastikan masih ada cukup baris untuk 8 baris data
             try:
-                # Kolom E hingga G (index 4, 5, 6), 5 data pertama (row index 2–6)
-                data_1_5 = df.iloc[2:7, 4 + i*2]
-                # Kolom F hingga H (index 5, 6, 7), 5 data kedua (row index 2–6)
-                data_6_10 = df.iloc[2:7, 5 + i*2]
+                # Cek apakah ada data di kolom A (nomor batch)
+                batch_name = df.iloc[current_row, 0]  # Kolom A
                 
+                if pd.isna(batch_name) or batch_name == '':
+                    break
+                    
+                # Ambil data dari kolom E (index 4) untuk data 1-5
+                data_1_5 = df.iloc[current_row:current_row+5, 4]  # E3:E7
+                # Ambil data dari kolom F (index 5) untuk data 6-10  
+                data_6_10 = df.iloc[current_row:current_row+5, 5]  # F3:F7
+                
+                # Gabungkan data
                 values = pd.concat([data_1_5, data_6_10], ignore_index=True)
                 values = pd.to_numeric(values, errors='coerce').dropna()
                 
-                if len(values) == 10:
-                    result_df[batch] = values
+                if len(values) >= 8:  # Minimal 8 data valid
+                    # Ambil hanya 10 data pertama jika lebih dari 10
+                    values = values[:10] if len(values) > 10 else values
+                    result_df[str(batch_name)] = values
+                    batch_names.append(str(batch_name))
+                    st.write(f"Batch {batch_name} berhasil diproses dengan {len(values)} data")
                 else:
-                    st.warning(f"Data batch {batch} tidak lengkap. Diabaikan.")
+                    st.warning(f"Data batch {batch_name} tidak lengkap ({len(values)} data). Diabaikan.")
+                
+                # Pindah ke batch berikutnya (setiap batch memiliki 8 baris)
+                current_row += 8
+                batch_counter += 1
+                
             except Exception as e:
-                st.warning(f"Batch {batch} tidak valid: {e}")
+                st.warning(f"Error pada baris {current_row}: {e}")
+                current_row += 8
                 continue
         
         if result_df.empty:
             st.error("Tidak ada data valid yang dapat diproses.")
             return None
         
-        # Set index untuk data asli (1-10)
-        result_df.index = range(1, len(result_df) + 1)
+        # Pastikan semua kolom memiliki panjang yang sama dengan padding NaN jika perlu
+        max_len = max([len(result_df[col]) for col in result_df.columns])
+        for col in result_df.columns:
+            if len(result_df[col]) < max_len:
+                # Pad dengan NaN untuk kolom yang lebih pendek
+                padding = [None] * (max_len - len(result_df[col]))
+                result_df[col] = list(result_df[col]) + padding
+        
+        # Set index untuk data asli (1 sampai max_len)
+        result_df.index = range(1, max_len + 1)
         
         # Calculate statistics
         stats_df = calculate_statistics(result_df)
@@ -76,18 +105,18 @@ def parse_kekerasan_excel(file):
         # Display the final table with proper formatting
         st.write("Data Kekerasan dengan Statistik:")
         
-        # Format the display - keep original values for rows 1-10, format statistics
+        # Format the display - keep original values for rows 1-max_len, format statistics
         display_df = final_df.copy()
         
-        # Apply formatting only to statistics rows (last 5 rows)
+        # Apply formatting only to data rows (first max_len rows)
         styled_df = display_df.style.format({
-            col: lambda x: f"{x:.0f}" if x == x and abs(x - round(x)) < 1e-10 else f"{x:.2f}"
+            col: lambda x: f"{x:.2f}" if pd.notna(x) and isinstance(x, (int, float)) else ""
             for col in display_df.columns
-        }, subset=pd.IndexSlice[1:10, :])
+        }, subset=pd.IndexSlice[1:max_len, :])
         
         # Format statistics rows with more precision
         styled_df = styled_df.format({
-            col: lambda x: f"{x:.2f}" if isinstance(x, (int, float)) and x == x else str(x)
+            col: lambda x: f"{x:.2f}" if isinstance(x, (int, float)) and pd.notna(x) else str(x)
             for col in display_df.columns
         }, subset=pd.IndexSlice['MIN':'RSD (%)', :])
         
@@ -99,7 +128,6 @@ def parse_kekerasan_excel(file):
         st.error(f"Gagal memproses file Kekerasan: {e}")
         st.write("Detail error:", str(e))
         return None
-
 
 def parse_keseragaman_bobot_excel(file):
     """
