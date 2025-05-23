@@ -337,7 +337,13 @@ def parse_tebal_excel(file):
 
         # ======== Tambahkan tombol download di sini ========
         filename_prefix = f"data_tebal_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=True)
+    output.seek(0)
+    b64 = base64.b64encode(output.read()).decode()
+    href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}.xlsx">📥 Download Excel File</a>'
+    return href
         # CSV
         csv_buffer = io.StringIO()
         combined_df.to_csv(csv_buffer, index=False)
