@@ -240,8 +240,8 @@ def get_unique_bahan_names(df):
 
 def merge_same_materials(df):
     """
-    Menggabungkan data dengan nama bahan yang sama dari berbagai index
-    sehingga data yang sama dikelompokkan berurutan
+    Mengelompokkan data dengan nama bahan yang sama dalam satu batch
+    Data yang sama akan diletakkan berurutan, dan data lainnya akan menggeser mengisi slot kosong
     """
     # Buat copy dataframe untuk hasil
     result_df = df.copy()
@@ -262,7 +262,7 @@ def merge_same_materials(df):
     
     # Untuk setiap baris, reorganisasi data berdasarkan nama bahan yang sama
     for row_idx in result_df.index:
-        # Kumpulkan semua data bahan dalam baris ini
+        # Kumpulkan semua data bahan dalam baris ini dengan data lengkap
         materials_data = []
         
         for idx in indices:
@@ -279,20 +279,59 @@ def merge_same_materials(df):
                 str(result_df.loc[row_idx, nama_col]).strip() != ''):
                 
                 material_data = {
-                    'nama': result_df.loc[row_idx, nama_col],
+                    'nama': str(result_df.loc[row_idx, nama_col]).strip(),
                     'kode': result_df.loc[row_idx, kode_col] if kode_col in result_df.columns else '',
                     'terpakai': result_df.loc[row_idx, terpakai_col] if terpakai_col in result_df.columns else '',
                     'rusak': result_df.loc[row_idx, rusak_col] if rusak_col in result_df.columns else '',
                     'lot': result_df.loc[row_idx, lot_col] if lot_col in result_df.columns else '',
-                    'qc': result_df.loc[row_idx, qc_col] if qc_col in result_df.columns else ''
+                    'qc': result_df.loc[row_idx, qc_col] if qc_col in result_df.columns else '',
+                    'original_index': idx
                 }
                 materials_data.append(material_data)
         
-        # Urutkan berdasarkan nama bahan (grup nama yang sama bersama)
-        materials_data.sort(key=lambda x: x['nama'])
+        # Kelompokkan berdasarkan nama bahan yang sama
+        from collections import defaultdict
+        grouped_materials = defaultdict(list)
         
-        # Tulis kembali data yang sudah diurutkan
-        for i, material in enumerate(materials_data, 1):
+        for material in materials_data:
+            grouped_materials[material['nama']].append(material)
+        
+        # Buat urutan baru: kelompokkan yang sama bersama-sama
+        reorganized_materials = []
+        
+        # Urutkan grup berdasarkan kemunculan pertama dalam data asli
+        sorted_groups = sorted(grouped_materials.items(), 
+                             key=lambda x: min(item['original_index'] for item in x[1]))
+        
+        for nama_bahan, group_materials in sorted_groups:
+            # Urutkan dalam grup berdasarkan original_index untuk konsistensi
+            group_materials.sort(key=lambda x: x['original_index'])
+            reorganized_materials.extend(group_materials)
+        
+        # Kosongkan semua kolom bahan terlebih dahulu
+        for idx in indices:
+            nama_col = f'Nama Bahan {idx}'
+            kode_col = f'Kode Bahan {idx}'
+            terpakai_col = f'Kuantiti > Terpakai {idx}'
+            rusak_col = f'Kuantiti > Rusak {idx}'
+            lot_col = f'No Lot Supplier {idx}'
+            qc_col = f'Label QC {idx}'
+            
+            if nama_col in result_df.columns:
+                result_df.loc[row_idx, nama_col] = ''
+            if kode_col in result_df.columns:
+                result_df.loc[row_idx, kode_col] = ''
+            if terpakai_col in result_df.columns:
+                result_df.loc[row_idx, terpakai_col] = ''
+            if rusak_col in result_df.columns:
+                result_df.loc[row_idx, rusak_col] = ''
+            if lot_col in result_df.columns:
+                result_df.loc[row_idx, lot_col] = ''
+            if qc_col in result_df.columns:
+                result_df.loc[row_idx, qc_col] = ''
+        
+        # Tulis kembali data yang sudah diorganisasi ulang
+        for i, material in enumerate(reorganized_materials, 1):
             if i <= len(indices):
                 nama_col = f'Nama Bahan {i}'
                 kode_col = f'Kode Bahan {i}'
@@ -313,28 +352,6 @@ def merge_same_materials(df):
                     result_df.loc[row_idx, lot_col] = material['lot']
                 if qc_col in result_df.columns:
                     result_df.loc[row_idx, qc_col] = material['qc']
-        
-        # Kosongkan kolom yang tidak terpakai
-        for i in range(len(materials_data) + 1, len(indices) + 1):
-            nama_col = f'Nama Bahan {i}'
-            kode_col = f'Kode Bahan {i}'
-            terpakai_col = f'Kuantiti > Terpakai {i}'
-            rusak_col = f'Kuantiti > Rusak {i}'
-            lot_col = f'No Lot Supplier {i}'
-            qc_col = f'Label QC {i}'
-            
-            if nama_col in result_df.columns:
-                result_df.loc[row_idx, nama_col] = ''
-            if kode_col in result_df.columns:
-                result_df.loc[row_idx, kode_col] = ''
-            if terpakai_col in result_df.columns:
-                result_df.loc[row_idx, terpakai_col] = ''
-            if rusak_col in result_df.columns:
-                result_df.loc[row_idx, rusak_col] = ''
-            if lot_col in result_df.columns:
-                result_df.loc[row_idx, lot_col] = ''
-            if qc_col in result_df.columns:
-                result_df.loc[row_idx, qc_col] = ''
     
     return result_df
 
