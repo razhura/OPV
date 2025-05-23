@@ -33,26 +33,25 @@ def calculate_statistics(df):
 def parse_kekerasan_excel(file):
     try:
         df = pd.read_excel(file, header=None, engine='odf')
-
         # Validasi ukuran minimal file
         if df.shape[0] < 7 or df.shape[1] < 7:
             st.error("Template tidak sesuai: data minimal tidak terpenuhi.")
             return None
-
+        
         # Ambil nama batch dari baris ke-2 (index 1), mulai dari kolom E (index 4)
         batch_names = df.iloc[1, 4:].dropna().values
         result_df = pd.DataFrame()
-
+        
         for i, batch in enumerate(batch_names):
             try:
                 # Kolom E hingga G (index 4, 5, 6), 5 data pertama (row index 2–6)
                 data_1_5 = df.iloc[2:7, 4 + i*2]
                 # Kolom F hingga H (index 5, 6, 7), 5 data kedua (row index 2–6)
                 data_6_10 = df.iloc[2:7, 5 + i*2]
-
+                
                 values = pd.concat([data_1_5, data_6_10], ignore_index=True)
                 values = pd.to_numeric(values, errors='coerce').dropna()
-
+                
                 if len(values) == 10:
                     result_df[batch] = values
                 else:
@@ -60,27 +59,46 @@ def parse_kekerasan_excel(file):
             except Exception as e:
                 st.warning(f"Batch {batch} tidak valid: {e}")
                 continue
-
+        
         if result_df.empty:
             st.error("Tidak ada data valid yang dapat diproses.")
             return None
-
+        
+        # Set index untuk data asli (1-10)
         result_df.index = range(1, len(result_df) + 1)
-        st.write("Data Keseragaman Bobot Terstruktur:")
-        st.dataframe(result_df)
-
+        
+        # Calculate statistics
         stats_df = calculate_statistics(result_df)
-        st.write("Statistik Data Kekerasan:")
-        st.dataframe(stats_df.style.format("{:.4f}"))
-
-        export_df = pd.concat([result_df, stats_df])
-        return export_df
-
+        
+        # Combine data and statistics into final table
+        final_df = pd.concat([result_df, stats_df])
+        
+        # Display the final table with proper formatting
+        st.write("Data Kekerasan dengan Statistik:")
+        
+        # Format the display - keep original values for rows 1-10, format statistics
+        display_df = final_df.copy()
+        
+        # Apply formatting only to statistics rows (last 5 rows)
+        styled_df = display_df.style.format({
+            col: lambda x: f"{x:.0f}" if x == x and abs(x - round(x)) < 1e-10 else f"{x:.2f}"
+            for col in display_df.columns
+        }, subset=pd.IndexSlice[1:10, :])
+        
+        # Format statistics rows with more precision
+        styled_df = styled_df.format({
+            col: lambda x: f"{x:.2f}" if isinstance(x, (int, float)) and x == x else str(x)
+            for col in display_df.columns
+        }, subset=pd.IndexSlice['MIN':'RSD (%)', :])
+        
+        st.dataframe(styled_df)
+        
+        return final_df
+        
     except Exception as e:
         st.error(f"Gagal memproses file Kekerasan: {e}")
         st.write("Detail error:", str(e))
         return None
-
 
 
 def parse_keseragaman_bobot_excel(file):
