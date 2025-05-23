@@ -235,12 +235,14 @@ def parse_keseragaman_bobot_excel(file):
 
 def parse_tebal_excel(file):
     """
-    Parsing untuk template Excel pengujian Tebal
+    Parsing untuk template Excel pengujian Tebal, dilengkapi dengan tombol download ke CSV dan Excel
     """
     try:
         import pandas as pd
         import numpy as np
         import streamlit as st
+        import io
+        from datetime import datetime
         
         df = pd.read_excel(file, header=None)
 
@@ -261,25 +263,19 @@ def parse_tebal_excel(file):
                 continue
 
             try:
-                # Ambil data dari kolom E (data 1-3) dan F (data 4-6)
-                # Kolom ke-5 dan ke-6 (indeks 4 dan 5)
-                values_e = subset.iloc[0:3, 4].copy()  # Gunakan copy() untuk menghindari SettingWithCopyWarning
+                values_e = subset.iloc[0:3, 4].copy()
                 values_f = subset.iloc[0:3, 5].copy()
                 
-                # Fungsi untuk membersihkan dan memproses data
                 def clean_numeric_value(val):
                     if pd.isna(val):
                         return np.nan
                     if isinstance(val, (int, float)):
                         return float(val)
                     if isinstance(val, str):
-                        # Coba pisahkan nilai jika string terlalu panjang dan tanpa spasi
                         if len(val) > 8 and ' ' not in val:
-                            # Ekstrak angka-angka dari string menggunakan regex
                             import re
                             numbers = re.findall(r'\d+\.\d+|\d+', val)
                             if numbers:
-                                # Ambil nilai tengah jika ada beberapa angka
                                 middle_index = len(numbers) // 2
                                 return float(numbers[middle_index])
                             else:
@@ -292,91 +288,83 @@ def parse_tebal_excel(file):
                     else:
                         return np.nan
                 
-                # Apply cleaning function ke semua nilai
                 values_e = values_e.apply(clean_numeric_value)
                 values_f = values_f.apply(clean_numeric_value)
                 
                 stacked = pd.concat([values_e, values_f], ignore_index=True)
+                stacked = pd.to_numeric(stacked, errors='coerce').dropna()
                 
-                # Pastikan semua nilai bisa dikonversi ke numeric
-                stacked = pd.to_numeric(stacked, errors='coerce')
-                
-                # Hapus nilai NaN jika ada
-                stacked = stacked.dropna()
-                
-                # Tambahkan ke result_df hanya jika ada data valid
                 if not stacked.empty:
-                    result_df[str(batch)] = stacked  # Konversi batch ke string untuk menghindari masalah tipe data
+                    result_df[str(batch)] = stacked
             
             except Exception as e:
                 st.warning(f"Ada masalah saat memproses batch {batch}: {e}")
-                # Lanjutkan ke batch berikutnya
                 continue
             
-        # Periksa apakah dataframe kosong
         if result_df.empty:
             st.error("Tidak ada data valid yang dapat diproses.")
             return None
 
-        # Set index mulai dari 1
         result_df.index = range(1, len(result_df) + 1)
 
-        # Hitung statistik
-        stats = {}
-        stats["MIN"] = result_df.min()
-        stats["MAX"] = result_df.max()
-        stats["MEAN"] = result_df.mean()
-        stats["SD"] = result_df.std()
-        stats["RSD (%)"] = (stats["SD"] / stats["MEAN"]) * 100
+        stats = {
+            "MIN": result_df.min(),
+            "MAX": result_df.max(),
+            "MEAN": result_df.mean(),
+            "SD": result_df.std(),
+            "RSD (%)": (result_df.std() / result_df.mean()) * 100
+        }
         
-        # Buat DataFrame statistik
-        stats_df = pd.DataFrame(stats)
-        
-        # Transpose agar statsnya menjadi baris
-        stats_df = stats_df.T
-        
-        # Gabungkan kedua dataframe secara vertikal
-        # Pertama, kita perlu memastikan bahwa stats_df memiliki indeks yang tidak bentrok
+        stats_df = pd.DataFrame(stats).T
         max_index = result_df.index.max()
         stats_df.index = range(max_index + 1, max_index + 1 + len(stats_df))
-        
-        # Gabungkan dataframe data dengan dataframe statistik
+
         combined_df = pd.concat([result_df, stats_df])
-        
-        # Tambahkan kolom label di awal untuk memberikan nama pada baris statistik
-        # Buat kolom label dengan NaN untuk baris data
-        labels = pd.Series([""] * len(result_df), index=result_df.index)  # Gunakan string kosong daripada NaN
-        
-        # Tambahkan label untuk baris statistik
+        labels = pd.Series([""] * len(result_df), index=result_df.index)
         for i, stat_name in enumerate(["MIN", "MAX", "MEAN", "SD", "RSD (%)"], start=max_index + 1):
             labels[i] = stat_name
-            
-        # Tambahkan kolom label ke dataframe gabungan
         combined_df.insert(0, "", labels)
-        
-        # Tampilkan dataframe gabungan
+
         st.write("Data Tebal Terstruktur dengan Statistik:")
         
-        # Format angka dalam dataframe dengan 4 angka desimal
-        # Gunakan fungsi format khusus untuk menangani nilai non-numerik
         def format_values(val):
             if isinstance(val, (int, float)) and not pd.isna(val):
                 return f"{val:.4f}"
             return val
         
-        # Gunakan applymap untuk menerapkan format ke seluruh dataframe
         formatted_df = combined_df.applymap(format_values)
-        
-        # Tampilkan dataframe yang sudah diformat
         st.dataframe(formatted_df)
-        
 
+        # ======== Tambahkan tombol download di sini ========
+        filename_prefix = f"data_tebal_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+        # CSV
+        csv_buffer = io.StringIO()
+        combined_df.to_csv(csv_buffer, index=False)
+        st.download_button(
+            label="📥 Download CSV",
+            data=csv_buffer.getvalue(),
+            file_name=f"{filename_prefix}.csv",
+            mime="text/csv"
+        )
+
+        # Excel
+        xlsx_buffer = io.BytesIO()
+        with pd.ExcelWriter(xlsx_buffer, engine="xlsxwriter") as writer:
+            combined_df.to_excel(writer, index=False, sheet_name="Tebal")
+        xlsx_buffer.seek(0)
+        st.download_button(
+            label="📥 Download Excel (XLSX)",
+            data=xlsx_buffer,
+            file_name=f"{filename_prefix}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
     except Exception as e:
         st.error(f"Gagal memproses file Tebal: {e}")
         st.write("Detail error:", str(e))
         return None
-    
+
     
 def parse_waktu_hancur_friability_excel(file):
     """
