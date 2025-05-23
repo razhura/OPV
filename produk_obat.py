@@ -451,7 +451,9 @@ def parse_nama_mesin_tab2(file):
                         mesin_original[current_mesin].append(original_mesin)
                     if current_mesin and current_mesin not in mesin_batch_groups:
                         mesin_batch_groups[current_mesin] = []
-                elif str(df.iloc[i, 3]).strip() == "Tanggal Kalibrasi":
+                # PERUBAHAN: Skip "Tanggal Kalibrasi Ulang" rows completely
+                elif str(df.iloc[i, 3]).strip() == "Tanggal Kalibrasi Ulang":
+                    # Skip this row entirely - don't process calibration date data
                     continue
                 elif current_mesin is not None:
                     batch = str(df.iloc[i, 0]).strip()
@@ -554,8 +556,11 @@ def parse_nama_mesin_tab2(file):
             
             if uniform_data:
                 result_df = pd.DataFrame(uniform_data)
-                st.write("📊 Detail Lengkap Batch Per Mesin:")
+                st.write("📊 Detail Lengkap Batch Per Mesin (Hanya Data Nama Mesin):")
                 st.dataframe(result_df)
+                
+                # Tambahkan informasi bahwa data Tanggal Kalibrasi Ulang telah dihapus
+                st.info("ℹ️ Data 'Tanggal Kalibrasi Ulang' telah diabaikan dalam proses ini sesuai permintaan.")
                 
                 # Tambahkan tombol download untuk tiap kategori mesin
                 st.write("### Download Excel per Kategori Mesin")
