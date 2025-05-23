@@ -35,23 +35,22 @@ def parse_kekerasan_excel(file):
         df = pd.read_excel(file, header=None, engine='odf')
 
         # Validasi ukuran minimal file
-        if df.shape[0] < 7 or df.shape[1] < 6:
+        if df.shape[0] < 7 or df.shape[1] < 7:
             st.error("Template tidak sesuai: data minimal tidak terpenuhi.")
             return None
 
         # Ambil nama batch dari baris ke-2 (index 1), mulai dari kolom E (index 4)
-        batch_row = df.iloc[1]
-        batch_names = batch_row[4:].dropna().values
-        batch_cols = batch_row[4:].dropna().index
-
+        batch_names = df.iloc[1, 4:].dropna().values
         result_df = pd.DataFrame()
 
-        for idx, col in enumerate(batch_cols):
+        for i, batch in enumerate(batch_names):
             try:
-                batch = batch_names[idx]
-                data_e = df.iloc[2:7, col]       # E3-E7
-                data_f = df.iloc[2:7, col + 1]   # F3-F7
-                values = pd.concat([data_e, data_f], ignore_index=True)
+                # Kolom E hingga G (index 4, 5, 6), 5 data pertama (row index 2–6)
+                data_1_5 = df.iloc[2:7, 4 + i*2]
+                # Kolom F hingga H (index 5, 6, 7), 5 data kedua (row index 2–6)
+                data_6_10 = df.iloc[2:7, 5 + i*2]
+
+                values = pd.concat([data_1_5, data_6_10], ignore_index=True)
                 values = pd.to_numeric(values, errors='coerce').dropna()
 
                 if len(values) == 10:
@@ -81,6 +80,7 @@ def parse_kekerasan_excel(file):
         st.error(f"Gagal memproses file Kekerasan: {e}")
         st.write("Detail error:", str(e))
         return None
+
 
 
 def parse_keseragaman_bobot_excel(file):
