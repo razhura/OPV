@@ -207,6 +207,15 @@ if uploaded_file is not None:
     # --- Tampilkan Data Awal ---
     st.subheader("📄 Data Akhir (Setelah Parsing dan Gabung Kolom):")
     st.dataframe(df)
+
+     # --- Tampilkan Data Awal ---
+    st.subheader("📄 Data Awal (Setelah Parsing Header):")
+    
+    merge_mode = st.radio("Mode kolom duplikat:", ["Gabung [Nilai] & [Teks]", "Pisah [Nilai] & [Teks]"], index=0)
+    merge_mode_key = "gabung" if merge_mode == "Gabung [Nilai] & [Teks]" else "pisah"
+
+    # Gabungkan atau pisahkan kolom berdasarkan pilihan
+    df = combine_duplicate_columns(df, mode=merge_mode_key)
     
     # Tambahkan tombol ekspor untuk data utama
     export_link = export_dataframe(df, "data_lengkap")
