@@ -248,20 +248,12 @@ def parse_nama_mesin_tab2(file):
 
         df = pd.read_excel(file, header=None)
 
-        st.write("📋 Informasi File:")
-        st.write(f"- Jumlah baris: {len(df)}")
-        
-        # TAMBAHAN: Debug untuk melihat struktur data
-        st.write("### Preview Data (10 baris pertama)")
-        st.dataframe(df.head(10))
-        
         # Debug untuk kolom D dan E
         st.write("### Debug Kolom D dan E")
         for i in range(min(20, len(df))):
-            col_d = str(df.iloc[i, 3]).strip() if not pd.isna(df.iloc[i, 3]) else "NaN"
             col_e = str(df.iloc[i, 4]).strip() if not pd.isna(df.iloc[i, 4]) else "NaN"
-            if col_d in ["Nama Mesin", "Tanggal Kalibrasi Ulang"] or col_e in ["Nama Mesin", "Tanggal Kalibrasi Ulang"]:
-                st.write(f"Baris {i}: Kolom D='{col_d}', Kolom E='{col_e}'")
+            if col_e in ["Nama Mesin", "Tanggal Kalibrasi Ulang"]:
+                st.write(f"Baris {i}: Kolom E='{col_e}'")
         
         st.write("---")
 
