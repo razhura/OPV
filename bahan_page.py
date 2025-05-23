@@ -353,19 +353,34 @@ def merge_same_materials(df):
             for col in new_row.index:
                 new_row[col] = ''
             
-            # Isi hanya data kelompok yang dipindah di posisi pertama (kelompok 1)
-            if f'Nama Bahan 1' in new_row.index:
-                new_row[f'Nama Bahan 1'] = group['nama']
-            if f'Kode Bahan 1' in new_row.index:
-                new_row[f'Kode Bahan 1'] = group['kode']
-            if f'Kuantiti > Terpakai 1' in new_row.index:
-                new_row[f'Kuantiti > Terpakai 1'] = group['terpakai']
-            if f'Kuantiti > Rusak 1' in new_row.index:
-                new_row[f'Kuantiti > Rusak 1'] = group['rusak']
-            if f'No Lot Supplier 1' in new_row.index:
-                new_row[f'No Lot Supplier 1'] = group['lot']
-            if f'Label QC 1' in new_row.index:
-                new_row[f'Label QC 1'] = group['qc']
+            # Cari posisi kelompok dengan kode bahan yang sama di groups_to_keep
+            target_position = None
+            for kept_group in groups_to_keep:
+                if kept_group['kode'].strip() == group['kode'].strip():
+                    # Cari posisi kelompok ini di baris yang sudah diatur ulang
+                    for pos, check_group in enumerate(groups_to_keep, 1):
+                        if check_group == kept_group:
+                            target_position = pos
+                            break
+                    break
+            
+            # Jika tidak ditemukan posisi yang sama, letakkan di posisi aslinya
+            if target_position is None:
+                target_position = group['original_index']
+            
+            # Isi data kelompok yang dipindah di posisi yang sesuai
+            if f'Nama Bahan {target_position}' in new_row.index:
+                new_row[f'Nama Bahan {target_position}'] = group['nama']
+            if f'Kode Bahan {target_position}' in new_row.index:
+                new_row[f'Kode Bahan {target_position}'] = group['kode']
+            if f'Kuantiti > Terpakai {target_position}' in new_row.index:
+                new_row[f'Kuantiti > Terpakai {target_position}'] = group['terpakai']
+            if f'Kuantiti > Rusak {target_position}' in new_row.index:
+                new_row[f'Kuantiti > Rusak {target_position}'] = group['rusak']
+            if f'No Lot Supplier {target_position}' in new_row.index:
+                new_row[f'No Lot Supplier {target_position}'] = group['lot']
+            if f'Label QC {target_position}' in new_row.index:
+                new_row[f'Label QC {target_position}'] = group['qc']
             
             result_rows.append(new_row)
     
