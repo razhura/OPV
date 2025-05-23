@@ -662,13 +662,15 @@ def parse_batch_only_file(file):
         st.error(f"Gagal parsing file batch: {str(e)}")
         st.exception(e)
         return None
+        
 def pisahkan_data_grinding_berdasarkan_mesin(file_grinding, reference_data):
     """
     Memisahkan file grinding menjadi beberapa bagian berdasarkan batch yang sudah diklasifikasi dengan nama mesin.
+    Header "Nomor Batch" selalu di A1, tapi data bisa mulai dari baris 2, 3, dst (skip baris kosong).
     """
     try:
-        # Baca file Excel dengan pandas
-        df = pd.read_excel(file_grinding)
+        # Baca file Excel dengan header di baris 1
+        df = pd.read_excel(file_grinding, header=0)
         
         # Pastikan kolom "Nomor Batch" ada
         if "Nomor Batch" not in df.columns:
@@ -676,6 +678,17 @@ def pisahkan_data_grinding_berdasarkan_mesin(file_grinding, reference_data):
         
         # Bersihkan kolom Nomor Batch dari spasi
         df["Nomor Batch"] = df["Nomor Batch"].astype(str).str.strip()
+        
+        # Hapus baris yang kosong, NaN, atau 'nan' di kolom Nomor Batch
+        df_clean = df[
+            df["Nomor Batch"].notna() & 
+            (df["Nomor Batch"] != '') & 
+            (df["Nomor Batch"] != 'nan') &
+            (df["Nomor Batch"] != 'NaN')
+        ].copy()
+        
+        # Reset index setelah filtering
+        df_clean.reset_index(drop=True, inplace=True)
         
         # Inisialisasi hasil per mesin
         hasil_per_mesin = {}
@@ -686,10 +699,10 @@ def pisahkan_data_grinding_berdasarkan_mesin(file_grinding, reference_data):
         # Untuk setiap mesin dalam referensi, filter data
         for mesin, daftar_batch in reference_data.items():
             # Bersihkan daftar batch dari reference_data
-            daftar_batch_bersih = [str(b).strip() for b in daftar_batch]
+            daftar_batch_bersih = [str(b).strip() for b in daftar_batch if str(b).strip() != '']
             
             # Filter data berdasarkan nomor batch
-            df_filtered = df[df["Nomor Batch"].isin(daftar_batch_bersih)]
+            df_filtered = df_clean[df_clean["Nomor Batch"].isin(daftar_batch_bersih)]
             
             # Simpan hasil filter
             hasil_per_mesin[mesin] = df_filtered
@@ -698,7 +711,7 @@ def pisahkan_data_grinding_berdasarkan_mesin(file_grinding, reference_data):
             batch_terklasifikasi.extend(df_filtered["Nomor Batch"].tolist())
         
         # Filter data yang tidak terklasifikasi
-        df_unclassified = df[~df["Nomor Batch"].isin(batch_terklasifikasi)]
+        df_unclassified = df_clean[~df_clean["Nomor Batch"].isin(batch_terklasifikasi)]
         hasil_per_mesin["Unclassified"] = df_unclassified
         
         return hasil_per_mesin
