@@ -241,10 +241,10 @@ def get_unique_bahan_names(df):
 def merge_same_materials(df):
     """
     Memindahkan kelompok data dengan nama bahan yang sama ke baris baru
-    Setiap baris hanya akan berisi satu jenis nama bahan yang sama di semua kolom
+    Jika dalam satu baris ada nama bahan yang sama di kelompok berbeda,
+    kelompok kedua akan dipindah ke baris baru dan kelompok lain bergeser ke kiri
     """
     import pandas as pd
-    from collections import defaultdict
     
     # Buat list untuk menyimpan semua baris hasil
     result_rows = []
@@ -278,18 +278,14 @@ def merge_same_materials(df):
                 
                 # Kumpulkan semua data dalam kelompok ini
                 group_data = {
-                    'index': idx,
+                    'original_index': idx,
                     'nama': str(df.loc[row_idx, nama_col]).strip(),
-                    'data': {}
+                    'kode': df.loc[row_idx, f'Kode Bahan {idx}'] if f'Kode Bahan {idx}' in df.columns else '',
+                    'terpakai': df.loc[row_idx, f'Kuantiti > Terpakai {idx}'] if f'Kuantiti > Terpakai {idx}' in df.columns else '',
+                    'rusak': df.loc[row_idx, f'Kuantiti > Rusak {idx}'] if f'Kuantiti > Rusak {idx}' in df.columns else '',
+                    'lot': df.loc[row_idx, f'No Lot Supplier {idx}'] if f'No Lot Supplier {idx}' in df.columns else '',
+                    'qc': df.loc[row_idx, f'Label QC {idx}'] if f'Label QC {idx}' in df.columns else ''
                 }
-                
-                # Ambil semua data terkait kelompok ini
-                for col_type in ['Kode Bahan', 'Kuantiti > Terpakai', 'Kuantiti > Rusak', 'No Lot Supplier', 'Label QC']:
-                    col_name = f'{col_type} {idx}'
-                    if col_name in df.columns:
-                        group_data['data'][col_type] = df.loc[row_idx, col_name]
-                    else:
-                        group_data['data'][col_type] = ''
                 
                 materials_groups.append(group_data)
         
@@ -298,39 +294,70 @@ def merge_same_materials(df):
             result_rows.append(df.loc[row_idx].copy())
             continue
         
-        # Kelompokkan berdasarkan nama bahan yang sama
-        grouped_by_name = defaultdict(list)
-        for group in materials_groups:
-            grouped_by_name[group['nama']].append(group)
+        # Identifikasi duplikasi nama bahan
+        seen_names = {}
+        groups_to_keep = []  # Kelompok yang tetap di baris asli
+        groups_to_move = []  # Kelompok yang akan dipindah ke baris baru
         
-        # Proses setiap kelompok nama bahan
-        for nama_bahan, groups_list in grouped_by_name.items():
-            # Urutkan berdasarkan indeks asli
-            groups_list.sort(key=lambda x: x['index'])
+        for group in materials_groups:
+            nama = group['nama']
+            if nama in seen_names:
+                # Nama bahan sudah ada sebelumnya, tandai untuk dipindah
+                groups_to_move.append(group)
+            else:
+                # Nama bahan pertama kali muncul, tetap di baris asli
+                seen_names[nama] = True
+                groups_to_keep.append(group)
+        
+        # Buat baris asli dengan kelompok yang tidak dipindah
+        current_row = df.loc[row_idx].copy()
+        
+        # Kosongkan semua kolom bahan terlebih dahulu
+        for idx in indices:
+            for col_type in ['Nama Bahan', 'Kode Bahan', 'Kuantiti > Terpakai', 'Kuantiti > Rusak', 'No Lot Supplier', 'Label QC']:
+                col_name = f'{col_type} {idx}'
+                if col_name in current_row.index:
+                    current_row[col_name] = ''
+        
+        # Isi kembali dengan kelompok yang tersisa, bergeser ke kiri mulai dari posisi 1
+        for new_idx, group in enumerate(groups_to_keep, 1):
+            if new_idx <= len(indices):
+                # Isi semua data kelompok
+                current_row[f'Nama Bahan {new_idx}'] = group['nama']
+                if f'Kode Bahan {new_idx}' in current_row.index:
+                    current_row[f'Kode Bahan {new_idx}'] = group['kode']
+                if f'Kuantiti > Terpakai {new_idx}' in current_row.index:
+                    current_row[f'Kuantiti > Terpakai {new_idx}'] = group['terpakai']
+                if f'Kuantiti > Rusak {new_idx}' in current_row.index:
+                    current_row[f'Kuantiti > Rusak {new_idx}'] = group['rusak']
+                if f'No Lot Supplier {new_idx}' in current_row.index:
+                    current_row[f'No Lot Supplier {new_idx}'] = group['lot']
+                if f'Label QC {new_idx}' in current_row.index:
+                    current_row[f'Label QC {new_idx}'] = group['qc']
+        
+        result_rows.append(current_row)
+        
+        # Buat baris baru untuk setiap kelompok yang dipindah
+        for group in groups_to_move:
+            # Buat baris kosong berdasarkan struktur dataframe asli
+            new_row = pd.Series(index=df.columns, dtype=object)
             
-            # Buat baris baru untuk nama bahan ini
-            new_row = df.loc[row_idx].copy()
+            # Kosongkan semua kolom (default)
+            for col in new_row.index:
+                new_row[col] = ''
             
-            # Kosongkan semua kolom bahan terlebih dahulu
-            for idx in indices:
-                for col_type in ['Nama Bahan', 'Kode Bahan', 'Kuantiti > Terpakai', 'Kuantiti > Rusak', 'No Lot Supplier', 'Label QC']:
-                    col_name = f'{col_type} {idx}'
-                    if col_name in new_row.index:
-                        new_row[col_name] = ''
-            
-            # Isi dengan semua kelompok yang memiliki nama bahan sama
-            for new_idx, group in enumerate(groups_list, 1):
-                if new_idx <= len(indices):
-                    # Isi nama bahan
-                    nama_col = f'Nama Bahan {new_idx}'
-                    if nama_col in new_row.index:
-                        new_row[nama_col] = group['nama']
-                    
-                    # Isi data lainnya
-                    for col_type, value in group['data'].items():
-                        col_name = f'{col_type} {new_idx}'
-                        if col_name in new_row.index:
-                            new_row[col_name] = value
+            # Isi hanya data kelompok yang dipindah di posisi pertama (kelompok 1)
+            new_row[f'Nama Bahan 1'] = group['nama']
+            if f'Kode Bahan 1' in new_row.index:
+                new_row[f'Kode Bahan 1'] = group['kode']
+            if f'Kuantiti > Terpakai 1' in new_row.index:
+                new_row[f'Kuantiti > Terpakai 1'] = group['terpakai']
+            if f'Kuantiti > Rusak 1' in new_row.index:
+                new_row[f'Kuantiti > Rusak 1'] = group['rusak']
+            if f'No Lot Supplier 1' in new_row.index:
+                new_row[f'No Lot Supplier 1'] = group['lot']
+            if f'Label QC 1' in new_row.index:
+                new_row[f'Label QC 1'] = group['qc']
             
             result_rows.append(new_row)
     
