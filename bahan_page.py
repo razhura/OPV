@@ -294,20 +294,32 @@ def merge_same_materials(df):
             result_rows.append(df.loc[row_idx].copy())
             continue
         
-        # Identifikasi duplikasi nama bahan
+        # Identifikasi duplikasi nama bahan - PERBAIKAN DISINI
         seen_names = {}
         groups_to_keep = []  # Kelompok yang tetap di baris asli
         groups_to_move = []  # Kelompok yang akan dipindah ke baris baru
         
+        # DEBUG: Print informasi untuk troubleshooting
+        print(f"Row {row_idx}: Processing {len(materials_groups)} materials")
+        for i, group in enumerate(materials_groups):
+            print(f"  Group {i+1}: '{group['nama']}'")
+        
         for group in materials_groups:
-            nama = group['nama']
+            nama = group['nama'].upper().strip()  # Normalisasi untuk perbandingan
             if nama in seen_names:
                 # Nama bahan sudah ada sebelumnya, tandai untuk dipindah
+                print(f"  DUPLICATE FOUND: '{group['nama']}' - moving to new row")
                 groups_to_move.append(group)
             else:
                 # Nama bahan pertama kali muncul, tetap di baris asli
                 seen_names[nama] = True
                 groups_to_keep.append(group)
+        
+        # PERBAIKAN: Jika tidak ada duplikasi, semua tetap di baris asli
+        if not groups_to_move:
+            # Tidak ada duplikasi, copy baris asli
+            result_rows.append(df.loc[row_idx].copy())
+            continue
         
         # Buat baris asli dengan kelompok yang tidak dipindah
         current_row = df.loc[row_idx].copy()
@@ -342,9 +354,12 @@ def merge_same_materials(df):
             # Buat baris kosong berdasarkan struktur dataframe asli
             new_row = pd.Series(index=df.columns, dtype=object)
             
-            # Kosongkan semua kolom (default)
-            for col in new_row.index:
-                new_row[col] = ''
+            # Copy informasi non-material dari baris asli
+            for col in df.columns:
+                if not any(material_col in col for material_col in ['Nama Bahan', 'Kode Bahan', 'Kuantiti > Terpakai', 'Kuantiti > Rusak', 'No Lot Supplier', 'Label QC']):
+                    new_row[col] = df.loc[row_idx, col]
+                else:
+                    new_row[col] = ''
             
             # Isi hanya data kelompok yang dipindah di posisi pertama (kelompok 1)
             new_row[f'Nama Bahan 1'] = group['nama']
