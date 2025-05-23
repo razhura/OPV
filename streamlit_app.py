@@ -17,61 +17,7 @@ import numpy as npna
 
 st.set_page_config(page_title="Excel CQA Parser", layout="wide")
 
-# Inisialisasi session state untuk toggle background
-if 'bg_toggle' not in st.session_state:
-    st.session_state.bg_toggle = False  # Default: opacity 1.0 (background putih)
 
-# Fungsi untuk menambahkan background dari GitHub dengan opacity yang bisa diatur
-def add_bg_from_github():
-    github_image_url = "https://raw.githubusercontent.com/razhura/OPV/4d1c83c32af95e755b22c7bb22af7b8dbc4b9d4f/BG.jpg"
-    opacity = 0.0 if st.session_state.bg_toggle else 1.0
-
-    # CSS untuk background dan elemen lain agar ikut transparan
-    bg_style = f"""
-    <style>
-    /* Background utama dengan overlay opacity */
-    .stApp {{
-        background: linear-gradient(rgba(255,255,255,{opacity}), rgba(255,255,255,{opacity})), 
-                    url("{github_image_url}");
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-        background-attachment: fixed;
-    }}
-
-    /* Sidebar transparan */
-    section[data-testid="stSidebar"] > div {{
-        background-color: rgba(255, 255, 255, {opacity});
-    }}
-
-    /* Header transparan */
-    header[data-testid="stHeader"] {{
-        background-color: rgba(255, 255, 255, {opacity});
-    }}
-
-    /* Kontainer utama transparan */
-    .st-emotion-cache-18ni7ap {{
-        background-color: rgba(255, 255, 255, {opacity + 0.1});
-        border-radius: 10px;
-    }}
-    </style>
-    """
-    st.markdown(bg_style, unsafe_allow_html=True)
-
-# Panggil fungsi background
-add_bg_from_github()
-
-
-with st.sidebar:
-
-    
-    # Tombol toggle dengan ikon setting
-    button_label = "⚙️ Background: ON" if st.session_state.bg_toggle else "⚙️ Background: OFF"
-    if st.button(button_label):
-        st.session_state.bg_toggle = not st.session_state.bg_toggle
-        st.rerun()
-
-    
 
 
 # Modul internal
