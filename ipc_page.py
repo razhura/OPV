@@ -29,120 +29,62 @@ def calculate_statistics(df):
     
     return stats_df
 
+
 def parse_kekerasan_excel(file):
     """
-    Parsing untuk template Excel pengujian Kekerasan (khusus format stacking)
+    Parsing untuk template Excel pengujian Kekerasan (format stacking E3-E7, F3-F7)
     """
     try:
         df = pd.read_excel(file, header=None)
 
-        # Ambil baris pertama sebagai header
-        header_row = df.iloc[0]
-        df = df[1:]
-        df.columns = header_row
-        df.reset_index(drop=True, inplace=True)
+        # Ambil data dari sel E3-E7 dan F3-F7
+        data_rows = list(range(2, 7))  # baris 3 sampai 7 (index mulai dari 0)
+        data_cols_e = 4  # kolom E (index 4)
+        data_cols_f = 5  # kolom F (index 5)
 
-        # Hapus baris yang mengandung 'Rata-rata', 'SD', atau 'RSD' di kolom A
-        df = df[~df.iloc[:, 0].astype(str).str.contains("Rata|SD|RSD", na=False)]
-
-        # Ambil semua kolom nomor batch unik dari kolom A
-        batch_series = df.iloc[:, 0].dropna().unique()
+        # Ambil semua kolom nomor batch dari baris ke-1 (index 0), mulai dari kolom 4 ke kanan
+        batch_ids = df.iloc[1, 4:].dropna().index
+        batch_names = df.iloc[1, 4:].dropna().values
 
         result_df = pd.DataFrame()
 
-        for batch in batch_series:
-            subset = df[df.iloc[:, 0] == batch]
-            if subset.empty:
-                continue
+        for idx, col in enumerate(batch_ids):
+            batch = batch_names[idx]
 
-            # Ambil data dari kolom E (data 1-5) dan F (data 6-10)
-            # Asumsi kolom ke-5 dan ke-6 (indeks 4 dan 5)
-            try:
-                values_e = subset.iloc[0:5, 4]
-                values_f = subset.iloc[0:5, 5]
-                
-                # Proses dan clean data untuk mengatasi masalah konversi string ke numeric
-                def clean_value(val):
-                    if isinstance(val, str):
-                        # Cek apakah string memiliki format yang salah (angka-angka tanpa spasi)
-                        if len(val) > 8 and not ' ' in val:
-                            # Coba pisahkan angka berdasarkan pola
-                            # Asumsikan angka dengan pola 2 digit
-                            parts = []
-                            i = 0
-                            while i < len(val):
-                                # Cek karakter berikutnya untuk melihat pola angka
-                                if i < len(val) - 1:
-                                    if val[i] == '1' and val[i+1] in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']:
-                                        # Kemungkinan angka belasan
-                                        parts.append(val[i:i+2])
-                                        i += 2
-                                    else:
-                                        # Angka satuan atau puluhan
-                                        parts.append(val[i])
-                                        i += 1
-                                else:
-                                    parts.append(val[i])
-                                    i += 1
-                            
-                            # Ambil nilai pertama saja untuk kesederhanaan
-                            # Gunakan nilai tengah jika ada banyak angka
-                            if len(parts) > 0:
-                                middle_index = len(parts) // 2
-                                return float(parts[middle_index])
-                            else:
-                                return np.nan
-                        else:
-                            try:
-                                return float(val)
-                            except:
-                                return np.nan
-                    else:
-                        return val
-                
-                # Apply cleaning function
-                values_e = values_e.apply(clean_value)
-                values_f = values_f.apply(clean_value)
-                
-                stacked = pd.concat([values_e, values_f], ignore_index=True)
-                
-                # Pastikan semua nilai bisa dikonversi ke numeric
-                stacked = pd.to_numeric(stacked, errors='coerce')
-                
-                # Hapus nilai NaN jika ada
-                stacked = stacked.dropna()
-                
-                result_df[batch] = stacked
-                
-            except Exception as e:
-                st.warning(f"Ada masalah saat memproses batch {batch}: {e}")
-                # Lanjutkan ke batch berikutnya jika ada masalah
-                continue
-            
+            # Ambil data dari kolom E dan F (masing-masing 5 baris data)
+            values_e = df.iloc[data_rows, col]
+            values_f = df.iloc[data_rows, col + 1]  # diasumsikan kolom F setelah E
+
+            stacked = pd.concat([values_e, values_f], ignore_index=True)
+            stacked = pd.to_numeric(stacked, errors='coerce').dropna()
+
+            result_df[batch] = stacked
+
         # Periksa apakah dataframe kosong
         if result_df.empty:
             st.error("Tidak ada data valid yang dapat diproses.")
             return None
-            
-        # Set index mulai dari 1 (agar tidak bentrok saat loop)    
+
+        # Set index mulai dari 1
         result_df.index = range(1, len(result_df) + 1)
 
-
-        
-        # Hitung dan tampilkan statistik
+        # Hitung statistik
         stats_df = calculate_statistics(result_df)
+
+        # Tampilkan hasil di Streamlit
         st.write("Statistik Data Kekerasan:")
         st.dataframe(stats_df.style.format("{:.4f}"))
-        
+
         # Gabungkan dataframe untuk ekspor
         export_df = pd.concat([result_df, stats_df])
-        
+
         return export_df
 
     except Exception as e:
         st.error(f"Gagal memproses file Kekerasan: {e}")
         st.write("Detail error:", str(e))
         return None
+
 
 def parse_keseragaman_bobot_excel(file):
     """
