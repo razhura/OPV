@@ -72,6 +72,7 @@ def normalize_columns(df):
     return df
 
 
+
 def transform_batch_data(df):
     selected_cols = [
         'Nomor Batch',
@@ -90,30 +91,39 @@ def transform_batch_data(df):
         raise ValueError(f"Kolom berikut tidak ditemukan dalam data: {missing}")
 
     df = df[selected_cols].copy()
-    grouped = df.groupby('Nomor Batch')
+    
+    # Dapatkan urutan unik batch berdasarkan kemunculan pertama dalam data asli
+    batch_order = df['Nomor Batch'].drop_duplicates().tolist()
+    
+    # Group berdasarkan batch, tapi pertahankan urutan asli
+    grouped = df.groupby('Nomor Batch', sort=False)
 
     transformed_rows = []
     max_items = 0
 
-    for batch, group in grouped:
-        # Ambil No. Order Produksi dan Jalur dari baris pertama kelompok
-        order_produksi = group.iloc[0]['No. Order Produksi']
-        jalur = group.iloc[0]['Jalur']
+    # Proses batch sesuai urutan kemunculan asli
+    for batch in batch_order:
+        if batch in grouped.groups:
+            group = grouped.get_group(batch)
+            
+            # Ambil No. Order Produksi dan Jalur dari baris pertama kelompok
+            order_produksi = group.iloc[0]['No. Order Produksi']
+            jalur = group.iloc[0]['Jalur']
 
-        row_data = [batch, order_produksi, jalur]
+            row_data = [batch, order_produksi, jalur]
 
-        for _, item in group.iterrows():
-            row_data.extend([
-                item['Kode Bahan'],
-                item['Nama Bahan'],
-                item['Kuantiti > Terpakai'],
-                item['Kuantiti > Rusak'],
-                item['No Lot Supplier'],
-                item['Label QC']
-            ])
+            for _, item in group.iterrows():
+                row_data.extend([
+                    item['Kode Bahan'],
+                    item['Nama Bahan'],
+                    item['Kuantiti > Terpakai'],
+                    item['Kuantiti > Rusak'],
+                    item['No Lot Supplier'],
+                    item['Label QC']
+                ])
 
-        max_items = max(max_items, len(group))
-        transformed_rows.append(row_data)
+            max_items = max(max_items, len(group))
+            transformed_rows.append(row_data)
 
     full_row_len = 3 + max_items * 6
     for row in transformed_rows:
