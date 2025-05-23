@@ -238,6 +238,108 @@ def get_unique_bahan_names(df):
     return sorted(list(unique_names))
 
 
+def merge_same_materials(df):
+    """
+    Menggabungkan data dengan nama bahan yang sama dari berbagai index
+    sehingga data yang sama dikelompokkan berurutan
+    """
+    # Buat copy dataframe untuk hasil
+    result_df = df.copy()
+    
+    # Dapatkan semua kolom nama bahan
+    nama_bahan_cols = [col for col in df.columns if col.startswith('Nama Bahan ')]
+    
+    # Dapatkan indeks dari nama kolom (misal: "Nama Bahan 1" -> 1)
+    indices = []
+    for col in nama_bahan_cols:
+        try:
+            index = int(col.split()[-1])
+            indices.append(index)
+        except:
+            continue
+    
+    indices.sort()
+    
+    # Untuk setiap baris, reorganisasi data berdasarkan nama bahan yang sama
+    for row_idx in result_df.index:
+        # Kumpulkan semua data bahan dalam baris ini
+        materials_data = []
+        
+        for idx in indices:
+            nama_col = f'Nama Bahan {idx}'
+            kode_col = f'Kode Bahan {idx}'
+            terpakai_col = f'Kuantiti > Terpakai {idx}'
+            rusak_col = f'Kuantiti > Rusak {idx}'
+            lot_col = f'No Lot Supplier {idx}'
+            qc_col = f'Label QC {idx}'
+            
+            # Periksa apakah kolom ada dan ada data
+            if (nama_col in result_df.columns and 
+                pd.notna(result_df.loc[row_idx, nama_col]) and 
+                str(result_df.loc[row_idx, nama_col]).strip() != ''):
+                
+                material_data = {
+                    'nama': result_df.loc[row_idx, nama_col],
+                    'kode': result_df.loc[row_idx, kode_col] if kode_col in result_df.columns else '',
+                    'terpakai': result_df.loc[row_idx, terpakai_col] if terpakai_col in result_df.columns else '',
+                    'rusak': result_df.loc[row_idx, rusak_col] if rusak_col in result_df.columns else '',
+                    'lot': result_df.loc[row_idx, lot_col] if lot_col in result_df.columns else '',
+                    'qc': result_df.loc[row_idx, qc_col] if qc_col in result_df.columns else ''
+                }
+                materials_data.append(material_data)
+        
+        # Urutkan berdasarkan nama bahan (grup nama yang sama bersama)
+        materials_data.sort(key=lambda x: x['nama'])
+        
+        # Tulis kembali data yang sudah diurutkan
+        for i, material in enumerate(materials_data, 1):
+            if i <= len(indices):
+                nama_col = f'Nama Bahan {i}'
+                kode_col = f'Kode Bahan {i}'
+                terpakai_col = f'Kuantiti > Terpakai {i}'
+                rusak_col = f'Kuantiti > Rusak {i}'
+                lot_col = f'No Lot Supplier {i}'
+                qc_col = f'Label QC {i}'
+                
+                if nama_col in result_df.columns:
+                    result_df.loc[row_idx, nama_col] = material['nama']
+                if kode_col in result_df.columns:
+                    result_df.loc[row_idx, kode_col] = material['kode']
+                if terpakai_col in result_df.columns:
+                    result_df.loc[row_idx, terpakai_col] = material['terpakai']
+                if rusak_col in result_df.columns:
+                    result_df.loc[row_idx, rusak_col] = material['rusak']
+                if lot_col in result_df.columns:
+                    result_df.loc[row_idx, lot_col] = material['lot']
+                if qc_col in result_df.columns:
+                    result_df.loc[row_idx, qc_col] = material['qc']
+        
+        # Kosongkan kolom yang tidak terpakai
+        for i in range(len(materials_data) + 1, len(indices) + 1):
+            nama_col = f'Nama Bahan {i}'
+            kode_col = f'Kode Bahan {i}'
+            terpakai_col = f'Kuantiti > Terpakai {i}'
+            rusak_col = f'Kuantiti > Rusak {i}'
+            lot_col = f'No Lot Supplier {i}'
+            qc_col = f'Label QC {i}'
+            
+            if nama_col in result_df.columns:
+                result_df.loc[row_idx, nama_col] = ''
+            if kode_col in result_df.columns:
+                result_df.loc[row_idx, kode_col] = ''
+            if terpakai_col in result_df.columns:
+                result_df.loc[row_idx, terpakai_col] = ''
+            if rusak_col in result_df.columns:
+                result_df.loc[row_idx, rusak_col] = ''
+            if lot_col in result_df.columns:
+                result_df.loc[row_idx, lot_col] = ''
+            if qc_col in result_df.columns:
+                result_df.loc[row_idx, qc_col] = ''
+    
+    return result_df
+
+
+# Tambahkan fungsi ini ke dalam fungsi tampilkan_bahan()
 def tampilkan_bahan():
     st.title("Halaman CPP BAHAN")
     st.write("Ini adalah tampilan khusus CPP BAHAN.")
@@ -259,10 +361,9 @@ def tampilkan_bahan():
                     df_asli = normalize_columns(df_asli)
                     result_df = transform_batch_data(df_asli)
 
-                    st.session_state.result_df = result_df  # Simpan hasil ke session state
-                    st.session_state.processed = True  # Tandai bahwa data telah diproses
+                    st.session_state.result_df = result_df
+                    st.session_state.processed = True
                     
-                    # Dapatkan daftar unik nama bahan
                     unique_bahan_names = get_unique_bahan_names(result_df)
                     st.session_state.unique_bahan_names = unique_bahan_names
 
@@ -293,20 +394,54 @@ def tampilkan_bahan():
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
 
-            # Tampilkan dropdown dan tabel terfilter jika data telah diproses
+            # Tampilkan tombol merge jika data telah diproses
             if 'processed' in st.session_state and st.session_state.processed:
+                # Tambahkan tombol untuk merge data bahan yang sama
+                if st.button("🔄 Kelompokkan Bahan yang Sama"):
+                    with st.spinner("Mengelompokkan data bahan yang sama..."):
+                        merged_df = merge_same_materials(st.session_state.result_df)
+                        st.session_state.result_df = merged_df
+                        
+                        # Update unique bahan names
+                        unique_bahan_names = get_unique_bahan_names(merged_df)
+                        st.session_state.unique_bahan_names = unique_bahan_names
+                        
+                        st.subheader("✅ Data Setelah Pengelompokan Bahan")
+                        st.dataframe(merged_df)
+                        st.success("Data bahan yang sama telah dikelompokkan!")
+                        
+                        # Ekspor hasil merge
+                        csv_merged = simplify_headers(merged_df.copy()).to_csv(index=False)
+                        st.download_button(
+                            label="📥 Download Data Terkelompok (CSV)",
+                            data=csv_merged,
+                            file_name="data_batch_merged.csv",
+                            mime="text/csv",
+                            key="csv_merged"
+                        )
+                        
+                        buffer_merged = io.BytesIO()
+                        with pd.ExcelWriter(buffer_merged, engine='openpyxl') as writer:
+                            simplify_headers(merged_df.copy()).to_excel(writer, index=False, sheet_name='Merged Data')
+                        buffer_merged.seek(0)
+                        
+                        st.download_button(
+                            label="📥 Download Data Terkelompok (Excel)",
+                            data=buffer_merged,
+                            file_name="data_batch_merged.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            key="excel_merged"
+                        )
+
                 st.subheader("🔍 Filter Data Berdasarkan Nama Bahan")
                 
-                # Dapatkan daftar unik nama bahan
                 unique_bahan_names = st.session_state.unique_bahan_names
                 
-                # Tambahkan tombol "Pilih Semua"
                 col1, col2 = st.columns([1, 4])
                 with col1:
                     if st.button("Pilih Semua"):
                         st.session_state.selected_bahan_names = unique_bahan_names
                 
-                # Siapkan multiselect dengan default dari session state jika ada
                 if 'selected_bahan_names' not in st.session_state:
                     st.session_state.selected_bahan_names = []
                 
@@ -319,29 +454,23 @@ def tampilkan_bahan():
                     st.session_state.selected_bahan_names = selected_bahan_names
                 
                 if selected_bahan_names:
-                    # Untuk setiap nama bahan yang dipilih, buat tabel terfilter
                     for selected_name in selected_bahan_names:
-                        # Buat tabel terfilter untuk nama bahan yang dipilih
                         filtered_df = create_filtered_table_by_name(st.session_state.result_df, selected_name)
-                        
-                        # Buat nama file yang aman untuk digunakan (tanpa karakter khusus)
                         safe_filename = re.sub(r'[^\w\s-]', '', selected_name).strip().replace(' ', '_')
                         
                         if not filtered_df.empty:
                             st.subheader(f"📊 Tabel Terfilter - {selected_name}")
                             st.dataframe(filtered_df)
                             
-                            # Ekspor tabel terfilter ke CSV
                             csv_filtered = filtered_df.to_csv(index=False)
                             st.download_button(
                                 label=f"📥 Download Tabel {selected_name} (CSV)",
                                 data=csv_filtered,
                                 file_name=f"filtered_{safe_filename}.csv",
                                 mime="text/csv",
-                                key=f"csv_{safe_filename}"  # Unique key untuk setiap button
+                                key=f"csv_{safe_filename}"
                             )
                             
-                            # Ekspor tabel terfilter ke Excel
                             buffer_filtered = io.BytesIO()
                             with pd.ExcelWriter(buffer_filtered, engine='openpyxl') as writer:
                                 filtered_df.to_excel(writer, index=False, sheet_name='Filtered Data')
@@ -352,12 +481,12 @@ def tampilkan_bahan():
                                 data=buffer_filtered,
                                 file_name=f"filtered_{safe_filename}.xlsx",
                                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                key=f"excel_{safe_filename}"  # Unique key untuk setiap button
+                                key=f"excel_{safe_filename}"
                             )
                         else:
                             st.warning(f"Tidak ada data untuk {selected_name}")
                         
-                        st.markdown("---")  # Separator between tables
+                        st.markdown("---")
 
         except Exception as e:
             st.error(f"Terjadi kesalahan saat ekstraksi data: {e}")
