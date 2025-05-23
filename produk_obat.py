@@ -619,7 +619,7 @@ def tampilkan_obat():
     st.write("Ini adalah halaman CPP OBAT")
     
     # Tampilkan tab untuk memilih mode operasi
-    tab1, tab2, tab3 = st.tabs(["Pengelompokan Batch dengan Kode Mesin", "Pengelompokan Batch dengan Nama Mesin", "Pisahkan Data Grinding per Mesin"])
+    tab1, tab2, tab3 = st.tabs(["Pengelompokan Batch dengan Kode Mesin", "Pengelompokan Batch dengan Nama Mesin", "Pisahkan Hasil Proses per Mesin"])
     
     with tab1:
         # Kode tab1 yang sudah ada...
