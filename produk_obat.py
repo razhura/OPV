@@ -248,11 +248,7 @@ def parse_nama_mesin_tab2(file):
 
         df = pd.read_excel(file, header=None)
 
-        # Debug untuk kolom D dan E
-        for i in range(min(20, len(df))):
-            col_e = str(df.iloc[i, 4]).strip() if not pd.isna(df.iloc[i, 4]) else "NaN"
-            if col_e in ["Nama Mesin", "Tanggal Kalibrasi Ulang"]:
-                st.write("---")
+    
 
         def similarity_score(str1, str2):
             str1_norm = ' '.join(str1.lower().split()) if isinstance(str1, str) else ""
