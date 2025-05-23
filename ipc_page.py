@@ -348,17 +348,7 @@ def parse_tebal_excel(file):
             mime="text/csv"
         )
 
-        # Excel
-        xlsx_buffer = io.BytesIO()
-        with pd.ExcelWriter(xlsx_buffer, engine="xlsxwriter") as writer:
-            combined_df.to_excel(writer, index=False, sheet_name="Tebal")
-        xlsx_buffer.seek(0)
-        st.download_button(
-            label="📥 Download Excel (XLSX)",
-            data=xlsx_buffer,
-            file_name=f"{filename_prefix}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+
 
     except Exception as e:
         st.error(f"Gagal memproses file Tebal: {e}")
