@@ -236,15 +236,6 @@ def parse_nama_mesin_tab2(file):
             
             return href
 
-        # Debug information to help troubleshoot
-        st.write("### Debug Information")
-        if 'tab1_json' in st.session_state:
-            tab1_data = json.loads(st.session_state.tab1_json)
-            st.write(f"Tab1 JSON data available with {len(tab1_data)} mesin keys")
-            for key, batches in tab1_data.items():
-                st.write(f"- {key}: {len([b for b in batches if b is not None])} valid batches")
-        else:
-            st.write("No tab1_json data found in session state")
 
         df = pd.read_excel(file, header=None)
 
