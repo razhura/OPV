@@ -124,12 +124,12 @@ def parse_kode_mesin_Kamboja(file):
                 # Update session state dengan data yang telah difilter
                 st.session_state.filtered_df = filtered_df
                 
-                # Buat dictionary baru hanya dengan mesin yang dipilih
+                # Buat dictionary baru hanya dengan mesin yang dipilih user (tanpa pengelompokan)
                 filtered_mesin_map = {}
                 for mesin in mesin_to_keep:
                     filtered_mesin_map[mesin] = [b for b in mesin_map[mesin] if b is not None]
-                    
-                # Update session state untuk tab2
+
+                # Simpan langsung hasil user ke session untuk Tab2
                 st.session_state.filtered_tab1_json = json.dumps(filtered_mesin_map)
                 
                 return filtered_df
@@ -223,11 +223,15 @@ def parse_nama_mesin_tab2(file):
             """
             Membuat tombol download untuk DataFrame
             """
+            # Konversi df ke Excel dalam memory
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
                 df.to_excel(writer, sheet_name=sheet_name, index=False)
             
+            # Konversi ke bytes dan encode ke base64
             b64 = base64.b64encode(output.getvalue()).decode()
+            
+            # Membuat link download
             href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}.xlsx" class="btn" style="background-color:#4CAF50;color:white;padding:8px 12px;text-decoration:none;border-radius:4px;">📥 Download {filename}.xlsx</a>'
             
             return href
@@ -243,366 +247,201 @@ def parse_nama_mesin_tab2(file):
             substring_bonus = 0.2 if str1_norm in str2_norm or str2_norm in str1_norm else 0
             return score + substring_bonus
 
-        # === DETEKSI FORMAT DATA ===
+        # Initialize variables
         all_machine_names = []
-        is_vietnam_data = False
+        mesin_batch_groups = {}
+        mesin_original = {}
+        batch_machine_mapping = {}
         
-        # Cek apakah ada "Nama Mesin" di kolom D (format Kamboja)
-        has_nama_mesin = False
-        for i in range(len(df)):
-            if str(df.iloc[i, 3]).strip() == "Nama Mesin":
-                has_nama_mesin = True
-                machine_name = str(df.iloc[i, 5]).strip()
-                if machine_name and machine_name.upper() != "NAN" and not pd.isna(machine_name):
-                    all_machine_names.append(machine_name)
-
-        # Jika tidak ada "Nama Mesin", cek apakah ini data Vietnam
-        if not has_nama_mesin and 'tab1_json' in st.session_state:
+        # Get valid batches from tab1 (works for both Vietnam and Kamboja data)
+        valid_filter_batches = []
+        if 'tab1_json' in st.session_state:
             tab1_data = json.loads(st.session_state.tab1_json)
-            if "Olsa Mames" in tab1_data:
-                is_vietnam_data = True
-                st.info("Format data Vietnam terdeteksi")
-                
-                # Extract machine names untuk Vietnam
-                machine_keywords = ["hassia", "sacklok", "redatron", "packaging", "machine", "vietnam"]
-                
-                for i in range(len(df)):
-                    for col in range(df.shape[1]):
-                        cell_value = str(df.iloc[i, col]).strip()
-                        if cell_value and cell_value.upper() != "NAN" and not pd.isna(cell_value):
-                            cell_lower = cell_value.lower()
-                            
-                            if any(keyword in cell_lower for keyword in machine_keywords):
-                                machine_candidate = cell_value
-                                
-                                if col > 0 and not pd.isna(df.iloc[i, col-1]):
-                                    prev_text = str(df.iloc[i, col-1]).strip()
-                                    if prev_text and len(prev_text) < 30:
-                                        machine_candidate = f"{prev_text} {machine_candidate}"
-                                
-                                if col < df.shape[1]-1 and not pd.isna(df.iloc[i, col+1]):
-                                    next_text = str(df.iloc[i, col+1]).strip()
-                                    if next_text and len(next_text) < 30:
-                                        machine_candidate = f"{machine_candidate} {next_text}"
-                                
-                                machine_candidate = " ".join(machine_candidate.split())
-                                if len(machine_candidate) > 5 and machine_candidate not in all_machine_names:
-                                    all_machine_names.append(machine_candidate)
-                
-                if not all_machine_names:
-                    all_machine_names.extend(["HASSIA REDATRON", "SACKLOK 00001"])
+            for key, batches in tab1_data.items():
+                if batches:
+                    valid_filter_batches.extend([str(b).strip() for b in batches if b is not None])
         
-        # === JIKA TIDAK ADA MACHINE NAMES SAMA SEKALI (KAMBOJA TANPA NAMA MESIN) ===
-        if not all_machine_names and not is_vietnam_data:
-            st.warning("⚠️ Tidak ditemukan 'Nama Mesin' dalam file. Ini mungkin file Kamboja yang tidak lengkap atau format berbeda.")
-            
-            # Coba deteksi berdasarkan tab1 data
-            if 'tab1_json' in st.session_state:
-                tab1_data = json.loads(st.session_state.tab1_json)
-                st.info(f"Menggunakan kode mesin dari Tab 1: {list(tab1_data.keys())}")
-                
-                # Gunakan kode mesin dari tab1 sebagai nama mesin
-                for kode_mesin in tab1_data.keys():
-                    if kode_mesin != "Olsa Mames":  # Skip Vietnam indicator
-                        all_machine_names.append(kode_mesin)
-                
-                # Jika masih kosong, buat nama mesin default
-                if not all_machine_names:
-                    all_machine_names = ["MESIN_TIDAK_DIKETAHUI"]
-            else:
-                st.error("Data Tab 1 tidak tersedia. Silakan proses Tab 1 terlebih dahulu.")
-                return None
-
-        st.info(f"Format data: {'Vietnam' if is_vietnam_data else 'Kamboja'}, ditemukan {len(all_machine_names)} nama mesin")
-
-        # === GROUPING MACHINE NAMES ===
-        all_machine_names.sort(key=len, reverse=True)
+        # Machine keywords
+        machine_keywords = ["hassia", "sacklok", "redatron", "packaging", "machine", "vietnam"]
         
+        # Scan the file to identify potential machine names
+        for i in range(len(df)):
+            for col in range(df.shape[1]):
+                cell_value = str(df.iloc[i, col]).strip()
+                if cell_value and cell_value.upper() != "NAN" and not pd.isna(cell_value):
+                    cell_lower = cell_value.lower()
+                    
+                    # Look for machine name patterns
+                    if any(keyword in cell_lower for keyword in machine_keywords):
+                        machine_candidate = cell_value
+                        
+                        # Add surrounding context if possible
+                        if col > 0 and not pd.isna(df.iloc[i, col-1]):
+                            prev_text = str(df.iloc[i, col-1]).strip()
+                            if prev_text and len(prev_text) < 30:
+                                machine_candidate = f"{prev_text} {machine_candidate}"
+                        
+                        if col < df.shape[1]-1 and not pd.isna(df.iloc[i, col+1]):
+                            next_text = str(df.iloc[i, col+1]).strip()
+                            if next_text and len(next_text) < 30:
+                                machine_candidate = f"{machine_candidate} {next_text}"
+                        
+                        machine_candidate = " ".join(machine_candidate.split())
+                        if len(machine_candidate) > 5 and machine_candidate not in all_machine_names:
+                            all_machine_names.append(machine_candidate)
+        
+        # Add default machine types if not found
+        if not all_machine_names:
+            all_machine_names.extend(["HASSIA REDATRON", "SACKLOK 00001"])
+        
+        # Group machine names
         machine_groups = {}
-        processed_machines = set()
-        threshold = 0.6
-
         for name in all_machine_names:
-            if name in processed_machines:
-                continue
-            similar_machines = [name]
-            processed_machines.add(name)
-            for other_name in all_machine_names:
-                if other_name != name and other_name not in processed_machines:
-                    score = similarity_score(name, other_name)
-                    if score >= threshold:
-                        similar_machines.append(other_name)
-                        processed_machines.add(other_name)
-            canonical_name = max(similar_machines, key=len)
-            for m in similar_machines:
-                machine_groups[m] = canonical_name
-
-        # Apply specific rules for machine names
-        for name in list(machine_groups.keys()):
             name_lower = name.lower()
             if "hassia" in name_lower or "redatron" in name_lower:
                 machine_groups[name] = "HASSIA REDATRON"
             elif "sacklok" in name_lower:
                 machine_groups[name] = "SACKLOK 00001"
-
-        # === PROCESSING BERDASARKAN FORMAT ===
-        batch_machine_mapping = {}
-        mesin_batch_groups = {}
-        current_mesin = None
-        mesin_original = {}
-
-        if is_vietnam_data:
-            # Vietnam data processing
-            valid_filter_batches = []
-            if 'tab1_json' in st.session_state:
-                tab1_data = json.loads(st.session_state.tab1_json)
-                if "Olsa Mames" in tab1_data:
-                    valid_filter_batches = [str(b).strip() for b in tab1_data["Olsa Mames"] if b is not None]
-            
-            for i in range(len(df)):
-                batch = str(df.iloc[i, 0]).strip()
-                if batch and batch.upper() != "NAN" and not pd.isna(batch) and batch != "-":
-                    if batch not in valid_filter_batches:
-                        continue
-                    
-                    row_str = ' '.join([str(df.iloc[i, j]).lower() for j in range(df.shape[1]) if not pd.isna(df.iloc[i, j])])
-                    
-                    found_machine = False
-                    for machine_name in machine_groups.keys():
-                        if machine_name.lower() in row_str:
-                            machine = machine_groups[machine_name]
-                            found_machine = True
-                            
-                            if machine not in mesin_batch_groups:
-                                mesin_batch_groups[machine] = []
-                            if machine not in mesin_original:
-                                mesin_original[machine] = []
-                            
-                            if machine_name not in mesin_original[machine]:
-                                mesin_original[machine].append(machine_name)
-                            
-                            mesin_batch_groups[machine].append(batch)
-                            
-                            if batch not in batch_machine_mapping:
-                                batch_machine_mapping[batch] = []
-                            if machine not in batch_machine_mapping[batch]:
-                                batch_machine_mapping[batch].append(machine)
-                            
-                            break
-                    
-                    if not found_machine:
-                        continue
-            
-        else:
-            # Kamboja data processing - DIPERBAIKI
-            if has_nama_mesin:
-                # Standard Kamboja processing dengan "Nama Mesin"
-                for i in range(len(df)):
-                    if str(df.iloc[i, 3]).strip() == "Nama Mesin":
-                        original_mesin = str(df.iloc[i, 5]).strip()
-                        if not original_mesin or original_mesin.upper() in ["NAN", "-", ""] or pd.isna(original_mesin):
-                            current_mesin = None
-                            continue
-                        
-                        if original_mesin in machine_groups:
-                            current_mesin = machine_groups[original_mesin]
-                        else:
-                            current_mesin = original_mesin
-                        
-                        if current_mesin not in mesin_original:
-                            mesin_original[current_mesin] = []
-                        if original_mesin not in mesin_original[current_mesin]:
-                            mesin_original[current_mesin].append(original_mesin)
-                        if current_mesin and current_mesin not in mesin_batch_groups:
-                            mesin_batch_groups[current_mesin] = []
-                    
-                    elif str(df.iloc[i, 3]).strip() == "Tanggal Kalibrasi Ulang" or str(df.iloc[i, 4]).strip() == "Tanggal Kalibrasi Ulang":
-                        current_mesin = None
-                        continue
-                    
-                    elif current_mesin is not None:
-                        batch = str(df.iloc[i, 0]).strip()
-                        if batch and batch.upper() != "NAN" and not pd.isna(batch) and batch != "-":
-                            if batch not in batch_machine_mapping:
-                                batch_machine_mapping[batch] = []
-                            
-                            if current_mesin not in batch_machine_mapping[batch]:
-                                batch_machine_mapping[batch].append(current_mesin)
-                            
-                            mesin_batch_groups[current_mesin].append(batch)
-            
             else:
-                # Kamboja tanpa "Nama Mesin" - mapping berdasarkan tab1
-                st.info("🔧 Mode fallback: Menggunakan kode mesin dari Tab 1 sebagai nama mesin")
+                machine_groups[name] = name
+        
+        # Process batches and assign to machines
+        for i in range(len(df)):
+            batch = str(df.iloc[i, 0]).strip()
+            if batch and batch.upper() != "NAN" and not pd.isna(batch) and batch != "-":
+                if batch not in valid_filter_batches:
+                    continue
                 
-                if 'tab1_json' in st.session_state:
-                    tab1_data = json.loads(st.session_state.tab1_json)
-                    
-                    # Inisialisasi semua mesin dari tab1
-                    for kode_mesin in tab1_data.keys():
-                        if kode_mesin != "Olsa Mames":
-                            if kode_mesin not in mesin_batch_groups:
-                                mesin_batch_groups[kode_mesin] = []
-                            if kode_mesin not in mesin_original:
-                                mesin_original[kode_mesin] = [kode_mesin]
-                    
-                    # Map batch ke mesin berdasarkan tab1 data
-                    for kode_mesin, batches in tab1_data.items():
-                        if kode_mesin != "Olsa Mames" and batches:
-                            for batch in batches:
-                                if batch is not None:
-                                    batch_str = str(batch).strip()
-                                    if batch_str and batch_str.upper() != "NAN":
-                                        mesin_batch_groups[kode_mesin].append(batch_str)
-                                        
-                                        if batch_str not in batch_machine_mapping:
-                                            batch_machine_mapping[batch_str] = []
-                                        if kode_mesin not in batch_machine_mapping[batch_str]:
-                                            batch_machine_mapping[batch_str].append(kode_mesin)
+                # Look for machine indicators in the entire row
+                row_str = ' '.join([str(df.iloc[i, j]).lower() for j in range(df.shape[1]) if not pd.isna(df.iloc[i, j])])
+                
+                # Try to find the machine from the row text
+                found_machine = False
+                for machine_name in machine_groups.keys():
+                    if machine_name.lower() in row_str:
+                        canonical_machine = machine_groups[machine_name]
+                        found_machine = True
+                        
+                        if canonical_machine not in mesin_batch_groups:
+                            mesin_batch_groups[canonical_machine] = []
+                        if canonical_machine not in mesin_original:
+                            mesin_original[canonical_machine] = []
+                        
+                        if machine_name not in mesin_original[canonical_machine]:
+                            mesin_original[canonical_machine].append(machine_name)
+                        
+                        mesin_batch_groups[canonical_machine].append(batch)
+                        
+                        if batch not in batch_machine_mapping:
+                            batch_machine_mapping[batch] = []
+                        if canonical_machine not in batch_machine_mapping[batch]:
+                            batch_machine_mapping[batch].append(canonical_machine)
+                        
+                        break
 
         # Clean up empty machine groups
         mesin_batch_groups = {k: v for k, v in mesin_batch_groups.items() if v}
 
-        # === DISPLAY RESULTS ===
-        if mesin_original:
-            st.write("### Detail Grup Mesin")
-            for canonical, originals in mesin_original.items():
-                if canonical in mesin_batch_groups and mesin_batch_groups[canonical]:
-                    st.write(f"- **{canonical}** mencakup: {', '.join(originals)}")
+        # Display machine groups
+        st.write("### Detail Grup Mesin")
+        for canonical, originals in mesin_original.items():
+            if canonical in mesin_batch_groups and mesin_batch_groups[canonical]:
+                st.write(f"- **{canonical}** (dari: {', '.join(originals)})")
 
+        # Create summary
         summary_data = []
         for mesin, batches in mesin_batch_groups.items():
             summary_data.append({
                 "Nama Mesin": mesin,
                 "Jumlah Batch": len(batches),
-                "Nama Asli": ", ".join(mesin_original.get(mesin, [mesin]))
+                "Kode/Nama Asli": ", ".join(mesin_original.get(mesin, [mesin]))
             })
 
-        if summary_data:
-            summary_df = pd.DataFrame(summary_data)
-            st.write("🔍 Ringkasan Nama Mesin yang Ditemukan:")
-            st.dataframe(summary_df)
-        else:
-            st.warning("⚠️ Tidak ada data mesin yang berhasil diproses")
+        summary_df = pd.DataFrame(summary_data)
+        st.write("🔍 Ringkasan Nama Mesin yang Ditemukan:")
+        st.dataframe(summary_df)
 
-        # === FILTER DENGAN TAB1 DATA ===
-        if 'tab1_json' not in st.session_state:
-            st.warning("Data batch dari Tab 1 belum tersedia. Silakan proses data di Tab 1 terlebih dahulu.")
-            st.session_state['filtered_nama_mesin_map'] = mesin_batch_groups
-            return None
-
-        mesin_batch_map = json.loads(st.session_state.tab1_json)
-        
-        valid_batches = []
-        mesin_terpilih = []
-        for mesin, batches in mesin_batch_map.items():
-            valid = [str(b).strip() for b in batches if b is not None]
-            if len(valid) > 0:
-                mesin_terpilih.append(mesin)
-            valid_batches.extend(valid)
-
-        valid_batches = list(set(valid_batches))
-        
-        # Gunakan batch dari mesin pertama yang dipilih
-        mesin_dipilih = mesin_terpilih[0] if mesin_terpilih else None
-        if mesin_dipilih:
-            valid_batches = [str(b).strip() for b in mesin_batch_map[mesin_dipilih] if b is not None]
-            st.info(f"📌 Menggunakan batch dari mesin: {mesin_dipilih} ({len(valid_batches)} batch)")
-        
-        # Filter hasil berdasarkan valid batches
-        filtered_mesin_batch = {}
+        # Create display table
+        table_data = []
         for mesin, batches in mesin_batch_groups.items():
-            filtered_mesin_batch[mesin] = []
-            for batch in batches:
-                if batch in valid_batches:
-                    filtered_mesin_batch[mesin].append(batch)
-
-        # Remove empty machines
-        filtered_mesin_batch = {k: v for k, v in filtered_mesin_batch.items() if v}
-
-        # Display filtered results
-        if filtered_mesin_batch:
-            table_data = []
-            for mesin, batches in filtered_mesin_batch.items():
+            if len(batches) > 0:
                 batch_sample = ", ".join(batches[:5]) + ("..." if len(batches) > 5 else "")
                 table_data.append({
                     "Nama Mesin": mesin,
                     "Jumlah Batch": len(batches),
                     "Contoh Batch": batch_sample,
-                    "Nama Asli": ", ".join(mesin_original.get(mesin, [mesin]))
+                    "Kode/Nama Asli": ", ".join(mesin_original.get(mesin, [mesin]))
                 })
-            
-            result_table = pd.DataFrame(table_data)
-            st.write("### Pengelompokan Batch Berdasarkan Nama Mesin (Setelah Dicocokkan dengan Tab 1):")
-            st.dataframe(result_table)
-            
-            st.session_state['filtered_nama_mesin_map'] = filtered_mesin_batch
-
-            # Create detailed DataFrame
-            max_length = max([len(v) for v in filtered_mesin_batch.values()])
-            uniform_data = {}
-            for k, v in filtered_mesin_batch.items():
-                uniform_data[k] = v + [None] * (max_length - len(v))
-            
-            result_df = pd.DataFrame(uniform_data)
-            st.write("📊 Detail Lengkap Batch Per Mesin:")
-            st.dataframe(result_df)
-            
-            st.info("ℹ️ Data 'Tanggal Kalibrasi Ulang' telah diabaikan dalam proses ini.")
-            
-            # Download buttons
-            st.write("### Download Excel per Kategori Mesin")
-            for mesin_name, batch_list in filtered_mesin_batch.items():
-                mesin_df = pd.DataFrame({
-                    "Batch": batch_list,
-                    "Mesin": [mesin_name] * len(batch_list)
-                })
-                
-                filename = f"batch_{mesin_name.lower().replace(' ', '_')}"
-                download_button = export_dataframe(mesin_df, filename)
-                
-                col1, col2 = st.columns([1, 3])
-                with col1:
-                    st.markdown(f"**{mesin_name}**")
-                with col2:
-                    st.markdown(download_button, unsafe_allow_html=True)
-                
-                st.caption(f"{len(batch_list)} batch teridentifikasi")
-            
-            # Download all
-            all_batches = []
-            all_mesins = []
-            for mesin_name, batch_list in filtered_mesin_batch.items():
-                all_batches.extend(batch_list)
-                all_mesins.extend([mesin_name] * len(batch_list))
-            
-            if all_batches:
-                st.write("### Download Semua Batch")
-                all_df = pd.DataFrame({
-                    "Batch": all_batches,
-                    "Mesin": all_mesins
-                })
-                download_all = export_dataframe(all_df, "semua_batch_mesin")
-                st.markdown(download_all, unsafe_allow_html=True)
-                st.caption(f"Total {len(all_batches)} batch dari {len(filtered_mesin_batch)} mesin")
-
-            # Save reference
-            if st.button("Simpan Referensi Nama Mesin ke JSON"):
-                try:
-                    reference_data = {mesin: list(set([b for b in batch_list if b]))
-                                    for mesin, batch_list in filtered_mesin_batch.items()}
-                    with open("mesin_batch_reference.json", "w") as f:
-                        json.dump(reference_data, f)
-                    st.success("Referensi batch per nama mesin berhasil disimpan ke mesin_batch_reference.json")
-                except Exception as e:
-                    st.error(f"Gagal menyimpan referensi: {str(e)}")
-
-            return result_df
         
-        else:
-            st.warning("⚠️ Tidak ada batch yang cocok setelah filtering dengan data Tab 1")
-            st.session_state['filtered_nama_mesin_map'] = {}
-            return None
+        result_table = pd.DataFrame(table_data)
+        st.write("### Pengelompokan Batch Berdasarkan Nama Mesin:")
+        st.dataframe(result_table)
+
+        # Store filtered data
+        st.session_state['filtered_nama_mesin_map'] = mesin_batch_groups
+
+        # Create uniform dataframe for full batch details
+        result_df = None
+        if mesin_batch_groups:
+            max_length = max([len(v) for v in mesin_batch_groups.values()])
+            uniform_data = {}
+            for k in mesin_batch_groups:
+                if len(mesin_batch_groups[k]) > 0:
+                    uniform_data[k] = mesin_batch_groups[k] + [None] * (max_length - len(mesin_batch_groups[k]))
+            
+            if uniform_data:
+                result_df = pd.DataFrame(uniform_data)
+                st.write("📊 Detail Lengkap Batch Per Mesin:")
+                st.dataframe(result_df)
+                
+                # Add download buttons
+                st.write("### Download Excel per Kategori Mesin")
+                for mesin_name, batch_list in mesin_batch_groups.items():
+                    if batch_list:
+                        mesin_df = pd.DataFrame({
+                            "Batch": batch_list,
+                            "Mesin": [mesin_name] * len(batch_list)
+                        })
+                        
+                        filename = f"batch_{mesin_name.lower().replace(' ', '_')}"
+                        download_button = export_dataframe(mesin_df, filename)
+                        
+                        col1, col2 = st.columns([1, 3])
+                        with col1:
+                            st.markdown(f"**{mesin_name}**")
+                        with col2:
+                            st.markdown(download_button, unsafe_allow_html=True)
+                        st.caption(f"{len(batch_list)} batch teridentifikasi")
+
+                # Download all batches
+                all_batches = []
+                all_mesins = []
+                for mesin_name, batch_list in mesin_batch_groups.items():
+                    all_batches.extend(batch_list)
+                    all_mesins.extend([mesin_name] * len(batch_list))
+                
+                if all_batches:
+                    st.write("### Download Semua Batch")
+                    all_df = pd.DataFrame({
+                        "Batch": all_batches,
+                        "Mesin": all_mesins
+                    })
+                    download_all = export_dataframe(all_df, "semua_batch_mesin")
+                    st.markdown(download_all, unsafe_allow_html=True)
+                    st.caption(f"Total {len(all_batches)} batch dari {len(mesin_batch_groups)} mesin")
+
+        # Save reference
+        if st.button("Simpan Referensi Nama Mesin ke JSON"):
+            try:
+                reference_data = {mesin: list(set([b for b in batch_list if b]))
+                                for mesin, batch_list in mesin_batch_groups.items()}
+                with open("mesin_batch_reference.json", "w") as f:
+                    json.dump(reference_data, f)
+                st.success("Referensi batch per nama mesin berhasil disimpan ke mesin_batch_reference.json")
+            except Exception as e:
+                st.error(f"Gagal menyimpan referensi: {str(e)}")
+
+        return result_df
 
     except Exception as e:
         st.error(f"Gagal parsing file: {str(e)}")
@@ -892,7 +731,7 @@ def tampilkan_obat():
 
     with tab3:
         # Kode tab3 yang sudah ada...
-        st.header("Pisahkan Data Grinding Berdasarkan Mesin")
+        st.header("Pisahkan Data Proses Berdasarkan Mesin")
         st.write("Upload file proses grinding dan gunakan referensi batch–mesin yang sudah ada.")
         
         ref_file = "mesin_batch_reference.json"
@@ -907,7 +746,7 @@ def tampilkan_obat():
                 hasil_split = pisahkan_data_grinding_berdasarkan_mesin(grinding_copy, reference_data)
 
                 if hasil_split:
-                    st.subheader("Hasil Pemisahan Data Grinding berdasarkan Nama Mesin")
+                    st.subheader("Hasil Sortir Proses berdasarkan Nama Mesin")
                     
                     # Buat tabel ringkasan hasil pemisahan
                     data_ringkasan = []
