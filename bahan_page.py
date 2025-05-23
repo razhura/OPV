@@ -240,19 +240,20 @@ def get_unique_bahan_names(df):
 
 def merge_same_materials(df):
     """
-    Mengelompokkan data dengan nama bahan yang sama dengan membuat baris baru
-    Jika ada nama bahan yang sama dalam satu baris, kelompok data kedua akan dipindah ke baris baru
+    Memindahkan kelompok data dengan nama bahan yang sama ke baris baru
+    Kelompok data kedua dan seterusnya yang memiliki nama bahan sama akan dipindah ke baris baru
+    Baris baru hanya berisi data yang dipindah, kolom lain kosong
     """
     import pandas as pd
     from collections import defaultdict
     
-    # Buat copy dataframe untuk hasil
+    # Buat list untuk menyimpan semua baris hasil
     result_rows = []
     
     # Dapatkan semua kolom nama bahan
     nama_bahan_cols = [col for col in df.columns if col.startswith('Nama Bahan ')]
     
-    # Dapatkan indeks dari nama kolom (misal: "Nama Bahan 1" -> 1)
+    # Dapatkan indeks dari nama kolom
     indices = []
     for col in nama_bahan_cols:
         try:
@@ -262,127 +263,98 @@ def merge_same_materials(df):
             continue
     
     indices.sort()
-    max_groups = len(indices)
     
-    # Untuk setiap baris, reorganisasi data berdasarkan nama bahan yang sama
+    # Untuk setiap baris dalam dataframe asli
     for row_idx in df.index:
-        # Kumpulkan semua data bahan dalam baris ini dengan data lengkap
-        materials_data = []
+        # Kumpulkan semua kelompok data bahan dalam baris ini
+        materials_groups = []
         
         for idx in indices:
             nama_col = f'Nama Bahan {idx}'
-            kode_col = f'Kode Bahan {idx}'
-            terpakai_col = f'Kuantiti > Terpakai {idx}'
-            rusak_col = f'Kuantiti > Rusak {idx}'
-            lot_col = f'No Lot Supplier {idx}'
-            qc_col = f'Label QC {idx}'
             
-            # Periksa apakah kolom ada dan ada data
+            # Periksa apakah ada data nama bahan
             if (nama_col in df.columns and 
                 pd.notna(df.loc[row_idx, nama_col]) and 
                 str(df.loc[row_idx, nama_col]).strip() != ''):
                 
-                material_data = {
+                # Kumpulkan semua data dalam kelompok ini
+                group_data = {
+                    'index': idx,
                     'nama': str(df.loc[row_idx, nama_col]).strip(),
-                    'kode': df.loc[row_idx, kode_col] if kode_col in df.columns else '',
-                    'terpakai': df.loc[row_idx, terpakai_col] if terpakai_col in df.columns else '',
-                    'rusak': df.loc[row_idx, rusak_col] if rusak_col in df.columns else '',
-                    'lot': df.loc[row_idx, lot_col] if lot_col in df.columns else '',
-                    'qc': df.loc[row_idx, qc_col] if qc_col in df.columns else '',
-                    'original_index': idx
+                    'data': {}
                 }
-                materials_data.append(material_data)
+                
+                # Ambil semua data terkait kelompok ini
+                for col_type in ['Kode Bahan', 'Kuantiti > Terpakai', 'Kuantiti > Rusak', 'No Lot Supplier', 'Label QC']:
+                    col_name = f'{col_type} {idx}'
+                    if col_name in df.columns:
+                        group_data['data'][col_type] = df.loc[row_idx, col_name]
+                    else:
+                        group_data['data'][col_type] = ''
+                
+                materials_groups.append(group_data)
         
-        if not materials_data:
+        if not materials_groups:
             # Jika tidak ada data material, copy baris asli
             result_rows.append(df.loc[row_idx].copy())
             continue
         
-        # Kelompokkan berdasarkan nama bahan yang sama
-        grouped_materials = defaultdict(list)
-        for material in materials_data:
-            grouped_materials[material['nama']].append(material)
+        # Identifikasi nama bahan yang sama dan urutannya
+        seen_names = {}
+        groups_to_move = []  # Kelompok yang akan dipindah ke baris baru
+        remaining_groups = []  # Kelompok yang tetap di baris asli
         
-        # Pisahkan grup yang memiliki duplikasi dan yang tidak
-        single_groups = []  # Grup dengan 1 material
-        multiple_groups = []  # Grup dengan >1 material (duplikasi)
-        
-        for nama_bahan, group_materials in grouped_materials.items():
-            if len(group_materials) == 1:
-                single_groups.extend(group_materials)
+        for group in materials_groups:
+            nama = group['nama']
+            if nama in seen_names:
+                # Nama bahan sudah ada sebelumnya, tandai untuk dipindah
+                groups_to_move.append(group)
             else:
-                # Urutkan berdasarkan original_index untuk konsistensi
-                group_materials.sort(key=lambda x: x['original_index'])
-                multiple_groups.append(group_materials)
+                # Nama bahan pertama kali muncul, tetap di baris asli
+                seen_names[nama] = True
+                remaining_groups.append(group)
         
-        # Buat baris pertama dengan material tunggal + material pertama dari setiap grup duplikasi
+        # Buat baris asli dengan kelompok yang tidak dipindah
         current_row = df.loc[row_idx].copy()
         
-        # Kosongkan semua kolom bahan
+        # Kosongkan semua kolom bahan terlebih dahulu
         for idx in indices:
             for col_type in ['Nama Bahan', 'Kode Bahan', 'Kuantiti > Terpakai', 'Kuantiti > Rusak', 'No Lot Supplier', 'Label QC']:
                 col_name = f'{col_type} {idx}'
                 if col_name in current_row.index:
                     current_row[col_name] = ''
         
-        # Susun material untuk baris pertama
-        first_row_materials = single_groups.copy()
-        
-        # Tambahkan material pertama dari setiap grup duplikasi
-        remaining_materials = []  # Material yang akan dibuat ke baris baru
-        for group in multiple_groups:
-            first_row_materials.append(group[0])  # Ambil yang pertama
-            remaining_materials.extend(group[1:])  # Sisanya untuk baris baru
-        
-        # Urutkan berdasarkan original_index untuk baris pertama
-        first_row_materials.sort(key=lambda x: x['original_index'])
-        
-        # Isi baris pertama
-        for i, material in enumerate(first_row_materials, 1):
-            if i <= max_groups:
-                for col_type, value in [
-                    ('Nama Bahan', material['nama']),
-                    ('Kode Bahan', material['kode']),
-                    ('Kuantiti > Terpakai', material['terpakai']),
-                    ('Kuantiti > Rusak', material['rusak']),
-                    ('No Lot Supplier', material['lot']),
-                    ('Label QC', material['qc'])
-                ]:
-                    col_name = f'{col_type} {i}'
+        # Isi kembali dengan kelompok yang tersisa, bergeser ke kiri
+        for new_idx, group in enumerate(remaining_groups, 1):
+            if new_idx <= len(indices):
+                # Isi nama bahan
+                nama_col = f'Nama Bahan {new_idx}'
+                if nama_col in current_row.index:
+                    current_row[nama_col] = group['nama']
+                
+                # Isi data lainnya
+                for col_type, value in group['data'].items():
+                    col_name = f'{col_type} {new_idx}'
                     if col_name in current_row.index:
                         current_row[col_name] = value
         
         result_rows.append(current_row)
         
-        # Buat baris tambahan untuk material yang tersisa (duplikasi)
-        while remaining_materials:
-            # Buat baris baru berdasarkan baris asli
-            new_row = df.loc[row_idx].copy()
+        # Buat baris baru untuk setiap kelompok yang dipindah
+        for group in groups_to_move:
+            # Buat baris kosong berdasarkan struktur dataframe asli
+            new_row = pd.Series(index=df.columns, dtype=object)
             
-            # Kosongkan semua kolom bahan
-            for idx in indices:
-                for col_type in ['Nama Bahan', 'Kode Bahan', 'Kuantiti > Terpakai', 'Kuantiti > Rusak', 'No Lot Supplier', 'Label QC']:
-                    col_name = f'{col_type} {idx}'
-                    if col_name in new_row.index:
-                        new_row[col_name] = ''
+            # Kosongkan semua kolom (default)
+            for col in new_row.index:
+                new_row[col] = ''
             
-            # Ambil material untuk baris ini (maksimal sesuai jumlah grup yang tersedia)
-            current_batch = remaining_materials[:max_groups]
-            remaining_materials = remaining_materials[max_groups:]
-            
-            # Isi baris baru
-            for i, material in enumerate(current_batch, 1):
-                for col_type, value in [
-                    ('Nama Bahan', material['nama']),
-                    ('Kode Bahan', material['kode']),
-                    ('Kuantiti > Terpakai', material['terpakai']),
-                    ('Kuantiti > Rusak', material['rusak']),
-                    ('No Lot Supplier', material['lot']),
-                    ('Label QC', material['qc'])
-                ]:
-                    col_name = f'{col_type} {i}'
-                    if col_name in new_row.index:
-                        new_row[col_name] = value
+            # Isi hanya data kelompok yang dipindah di posisi pertama
+            new_row[f'Nama Bahan 1'] = group['nama']
+            for col_type, value in group['data'].items():
+                col_name = f'{col_type} 1'
+                if col_name in new_row.index:
+                    new_row[col_name] = value
             
             result_rows.append(new_row)
     
