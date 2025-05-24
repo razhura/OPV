@@ -7,18 +7,8 @@ import base64
 import matplotlib.pyplot as plt
 from openpyxl import load_workbook
 
-# --- SET PAGE CONFIGimport base64
-import json
-import os
-import numpy as npna
-
-
-
-
+# --- SET PAGE CONFIG
 st.set_page_config(page_title="Excel CQA Parser", layout="wide")
-
-
-
 
 # Modul internal
 from navbar import render_navbar
@@ -61,6 +51,20 @@ if menu == "CPP Produk Bahan Obat":
 st.title("OPV KONIMEX V4.5")
 st.header("📊 Critical Quality Attribute (CQA)")
 
+# === PILIHAN MODE SEBELUM UPLOAD ===
+st.subheader("⚙️ Pengaturan Pemrosesan Data")
+merge_mode = st.radio(
+    "Pilih mode pemrosesan kolom duplikat:",
+    ["Gabung [Nilai] & [Teks]", "Pisah [Nilai] & [Teks]"],
+    index=0,
+    help="Pilih apakah ingin menggabungkan kolom dengan sufiks [Nilai] dan [Teks] menjadi satu kolom, atau tetap memisahkannya."
+)
+
+# Konversi ke key yang dipahami oleh utils
+merge_mode_key = "gabung" if merge_mode == "Gabung [Nilai] & [Teks]" else "pisah"
+
+st.info(f"Mode dipilih: **{merge_mode}**")
+
 # Fungsi parsing header bertingkat dari baris 4-6
 def extract_multi_level_headers(excel_file, start_row=4, num_levels=3):
     wb = load_workbook(excel_file, data_only=True)
@@ -69,7 +73,6 @@ def extract_multi_level_headers(excel_file, start_row=4, num_levels=3):
     headers = []
     max_col = ws.max_column
 
-    
     def simplify_main_header(header_text):
         if "-" in header_text:
             return header_text.split("-")[0].strip()
@@ -97,9 +100,7 @@ def extract_multi_level_headers(excel_file, start_row=4, num_levels=3):
             combined = " > ".join([simplified_main] + levels[1:])
             headers.append(combined)
 
-
     return headers
-
 
 # Fungsi untuk mengeksport DataFrame ke Excel
 def export_dataframe(df, filename="data_export"):
@@ -111,8 +112,8 @@ def export_dataframe(df, filename="data_export"):
     href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}.xlsx">📥 Download Excel File</a>'
     return href
 
-
-# Upload file Excel
+# === UPLOAD FILE ===
+st.subheader("📁 Upload File Excel")
 uploaded_file = st.file_uploader("Upload file Excel (.xlsx)", type=["xlsx", "ods"])
 
 if uploaded_file is not None:
@@ -125,7 +126,7 @@ if uploaded_file is not None:
     df = pd.read_excel(uploaded_file, skiprows=6, header=None)
     df.columns = combined_headers
     
-     # Deteksi dan konversi otomatis ke float
+    # Deteksi dan konversi otomatis ke float
     for col in df.columns:
         sample = df[col].dropna().astype(str)
 
@@ -140,23 +141,27 @@ if uploaded_file is not None:
 
             df[col] = sample.apply(safe_float)
 
-
-    
     # Hapus baris yang mengandung 'Rata-rata', 'SD', atau 'RSD' di kolom A
     df = df[~df.iloc[:, 0].astype(str).str.contains("Average|SD|UCL", na=False)]
     
-    # Gabungkan kolom duplikat
-    df = combine_duplicate_columns(df)
+ 
+    
+    # === GUNAKAN MODE YANG DIPILIH SEBELUMNYA ===
+    # Gabungkan kolom duplikat berdasarkan mode yang dipilih di awal
+    df = combine_duplicate_columns(df, mode=merge_mode_key)
+    
+    # === DEBUGGING: Tampilkan kolom setelah pemrosesan ===
+    st.write(f"Jumlah kolom: {len(df.columns)}")
 
-    # 2. Reset index
+    # Reset index
     df = df.reset_index(drop=True) 
 
-    # 3. Perbaiki data kosong dalam batch
+    # Perbaiki data kosong dalam batch
     current_batch = None
     batch_rows = []
 
     for idx in range(len(df)):
-        batch_value = df.loc[idx, "Nomor Batch"]
+        batch_value = df.loc[idx, "Nomor Batch"] if "Nomor Batch" in df.columns else None
 
         if pd.notna(batch_value):
             if batch_rows:
@@ -185,32 +190,29 @@ if uploaded_file is not None:
                             df.loc[search_idx, col] = None
                             break
 
-    # 4. Isi Nomor Batch kosong dari atas
+    # Isi Nomor Batch kosong dari atas
     if "Nomor Batch" in df.columns:
         df["Nomor Batch"] = df["Nomor Batch"].fillna(method="ffill")
 
-    # 5. Hapus baris kosong semua
+    # Hapus baris kosong semua
     df = df.dropna(how="all")
 
-    # 6. Hapus baris yang cuma punya Nomor Batch saja
+    # Hapus baris yang cuma punya Nomor Batch saja
     cols_to_check = [col for col in df.columns if col != "Nomor Batch"]
     df = df.dropna(subset=cols_to_check, how="all")
 
-    # Fungsi bantu: deteksi string desimal (misal '1.19')
-    def is_possible_decimal(value):
-        if isinstance(value, str) and re.match(r'^\d+\.\d+$', value.strip()):
-            return True
-        return False
-
-
-
-    # --- Tampilkan Data Awal ---
-    st.subheader("📄 Data Akhir (Setelah Parsing dan Gabung Kolom):")
+    # --- Tampilkan Data Hasil ---
+    st.subheader(f"📄 Data Hasil Pemrosesan (Mode: {merge_mode}):")
     st.dataframe(df)
- 
-    
+
+    # Tampilkan informasi tentang mode yang digunakan
+    if merge_mode_key == "gabung":
+        st.success("✅ Kolom dengan sufiks [Nilai] dan [Teks] telah digabungkan menjadi satu kolom.")
+    else:
+        st.info("ℹ️ Kolom dengan sufiks [Nilai] dan [Teks] tetap dipisahkan dan diurutkan berdekatan.")
+
     # Tambahkan tombol ekspor untuk data utama
-    export_link = export_dataframe(df, "data_lengkap")
+    export_link = export_dataframe(df, f"data_lengkap_{merge_mode_key}")
     st.markdown(export_link, unsafe_allow_html=True)
 
     # --- Tombol untuk memilih fitur ---
