@@ -2,8 +2,12 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import io
-import base64
-import re # Ensure re is imported if used in clean_numeric_value
+# import base64 # No longer needed for download links
+import re
+
+# --- (calculate_statistics, parse_kekerasan_excel, parse_keseragaman_bobot_excel, parse_tebal_excel, parse_waktu_hancur_friability_excel functions remain the same as in the previous version) ---
+# For brevity, I'm assuming these functions are unchanged from the last provided version.
+# If you need them repeated, let me know. I'll include the modified get_excel_for_download and tampilkan_ipc.
 
 def calculate_statistics(df):
     """
@@ -11,174 +15,181 @@ def calculate_statistics(df):
     """
     stats_df = pd.DataFrame()
     for column in df.columns:
-        min_val = df[column].min()
-        max_val = df[column].max()
-        mean_val = df[column].mean()
-        std_val = df[column].std()
-        rsd_val = (std_val / mean_val * 100) if mean_val != 0 else 0
+        # Ensure column data is numeric before calculating stats, handle potential errors
+        numeric_data = pd.to_numeric(df[column], errors='coerce').dropna()
+        if numeric_data.empty:
+            min_val, max_val, mean_val, std_val, rsd_val = np.nan, np.nan, np.nan, np.nan, np.nan
+        else:
+            min_val = numeric_data.min()
+            max_val = numeric_data.max()
+            mean_val = numeric_data.mean()
+            std_val = numeric_data.std()
+            rsd_val = (std_val / mean_val * 100) if mean_val != 0 else 0
+        
         stats_df[column] = [min_val, max_val, mean_val, std_val, rsd_val]
     stats_df.index = ['MIN', 'MAX', 'MEAN', 'SD', 'RSD (%)']
     return stats_df
 
 def parse_kekerasan_excel(file):
     try:
-        df = pd.read_excel(file, header=None, engine='odf')
-        if df.shape[0] < 10 or df.shape[1] < 6:
-            st.error("Template tidak sesuai: data minimal tidak terpenuhi.")
+        df = pd.read_excel(file, header=None, engine='odf') # Specify engine for .ods if needed
+        if df.shape[0] < 10 or df.shape[1] < 6: # Basic validation
+            st.error("Template tidak sesuai: data minimal tidak terpenuhi (Kekerasan).")
             return None
         
         result_df = pd.DataFrame()
-        batch_names = []
-        current_row = 2
-        batch_counter = 1
-        
-        while current_row < df.shape[0] - 7:
+        # batch_names = [] # Not actively used, can be removed if not needed later
+        current_row = 2 # Data starts from the 3rd row (index 2)
+        # batch_counter = 1 # Not actively used
+
+        while current_row < df.shape[0] - 7: # Ensure enough rows for one batch block (8 rows pattern)
             try:
-                batch_name = df.iloc[current_row, 0]
-                if pd.isna(batch_name) or batch_name == '':
-                    break
+                batch_name_val = df.iloc[current_row, 0] # Batch name from Column A
+                if pd.isna(batch_name_val) or str(batch_name_val).strip() == '':
+                    break # Stop if no more batch names
                 
-                data_1_5 = df.iloc[current_row:current_row+5, 4]
-                data_6_10 = df.iloc[current_row:current_row+5, 5]
+                batch_name = str(batch_name_val)
+
+                # Data from Column E (index 4) and F (index 5)
+                data_1_5 = df.iloc[current_row:current_row+5, 4] if df.shape[1] > 4 else pd.Series(dtype='float64')
+                data_6_10 = df.iloc[current_row:current_row+5, 5] if df.shape[1] > 5 else pd.Series(dtype='float64')
                 
                 values = pd.concat([data_1_5, data_6_10], ignore_index=True)
                 values = pd.to_numeric(values, errors='coerce').dropna()
                 
-                if len(values) >= 8:
-                    values = values[:10] if len(values) > 10 else values
-                    result_df[str(batch_name)] = values
-                    batch_names.append(str(batch_name))
+                if len(values) >= 8: # Minimum 8 valid data points
+                    values = values[:10] # Take only the first 10 if more are present
+                    # Pad with NaN if less than 10 for consistent column length in result_df
+                    if len(values) < 10:
+                        values = pd.concat([values, pd.Series([np.nan] * (10 - len(values)))], ignore_index=True)
+                    result_df[batch_name] = values
+                    # batch_names.append(batch_name)
                 else:
-                    st.warning(f"Data batch {batch_name} tidak lengkap ({len(values)} data). Diabaikan.")
+                    st.warning(f"Data batch {batch_name} tidak lengkap ({len(values)} data valid). Diabaikan.")
                 
-                current_row += 8
-                batch_counter += 1
-            except Exception as e:
-                st.warning(f"Error pada baris {current_row}: {e}")
+                current_row += 8 # Move to the next batch block
+                # batch_counter += 1
+            except IndexError: # Handle cases where rows/columns don't exist as expected
+                st.warning(f"Error memproses struktur data pada baris sekitar {current_row}. Periksa format file.")
+                current_row += 8 # Attempt to skip to next block
+                continue
+            except Exception as e: # Catch other errors during batch processing
+                st.warning(f"Error memproses batch pada baris {current_row}: {e}")
                 current_row += 8
                 continue
         
         if result_df.empty:
-            st.error("Tidak ada data valid yang dapat diproses.")
+            st.error("Tidak ada data valid yang dapat diproses dari file Kekerasan.")
             return None
         
-        max_len = 0
-        if not result_df.empty: # Check if result_df has columns
-            max_len = max([len(result_df[col]) for col in result_df.columns]) if result_df.columns.size > 0 else 0
-        
-        for col in result_df.columns:
-            if len(result_df[col]) < max_len:
-                padding = [np.nan] * (max_len - len(result_df[col])) # Use np.nan for padding
-                current_values = list(result_df[col])
-                current_values.extend(padding)
-                result_df[col] = current_values
-        
-        if max_len > 0: # Set index only if there's data
-            result_df.index = range(1, max_len + 1)
+        # Data is already structured to have up to 10 rows per batch.
+        # The number of rows in result_df will be 10 (or less if all batches had fewer than 10 after padding)
+        # Set index from 1 to 10 (or max_len if consistently padded)
+        max_data_points = 10
+        result_df.index = range(1, max_data_points + 1)
         
         stats_df = calculate_statistics(result_df)
         final_df = pd.concat([result_df, stats_df])
         
         st.write("Data Kekerasan dengan Statistik:")
         
-        display_df = final_df.copy()
-        
-        # Formatting for display
-        # Determine subset for data rows dynamically
-        data_rows_subset = pd.IndexSlice[result_df.index, :] if not result_df.empty else pd.IndexSlice[:, :]
-
-        styled_df = display_df.style.format({
-            col: lambda x: f"{x:.2f}" if pd.notna(x) and isinstance(x, (int, float)) else ""
-            for col in display_df.columns
-        }, subset=data_rows_subset)
-        
-        styled_df = styled_df.format({
-            col: lambda x: f"{x:.2f}" if isinstance(x, (int, float)) and pd.notna(x) else str(x)
-            for col in display_df.columns
-        }, subset=pd.IndexSlice[stats_df.index, :])
-        
-        st.dataframe(styled_df)
+        # Display formatting
+        display_df_styled = final_df.style.format(
+            lambda x: f"{x:.2f}" if isinstance(x, (int, float)) and pd.notna(x) else "",
+            na_rep=""
+        )
+        st.dataframe(display_df_styled)
         return final_df
     except Exception as e:
         st.error(f"Gagal memproses file Kekerasan: {e}")
-        st.write("Detail error:", str(e))
+        st.exception(e)
         return None
 
 def parse_keseragaman_bobot_excel(file):
     try:
         df = pd.read_excel(file, header=None)
-        header_row = df.iloc[0]
-        df = df[1:]
-        df.columns = header_row
-        df.reset_index(drop=True, inplace=True)
-        df = df[~df.iloc[:, 0].astype(str).str.contains("Rata|SD|RSD", na=False)]
-        batch_series = df.iloc[:, 0].dropna().unique()
+        if df.empty:
+            st.error("File Keseragaman Bobot kosong.")
+            return None
+
+        header_row_index = 0 # Assuming header is the first row
+        # Find header more dynamically if needed, e.g., by looking for "Nomor Batch"
+        header_row = df.iloc[header_row_index]
+        df_data = df[header_row_index+1:].copy()
+        df_data.columns = header_row
+        df_data.reset_index(drop=True, inplace=True)
+
+        # Assuming first column is batch identifier
+        batch_column_name = df_data.columns[0]
+        
+        # Remove summary rows (Rata-rata, SD, RSD) if they exist based on first column string match
+        df_data = df_data[~df_data.iloc[:, 0].astype(str).str.contains("Rata|SD|RSD", na=False, case=False)]
+        
+        batch_series = df_data[batch_column_name].dropna().unique()
         result_df = pd.DataFrame()
 
-        for batch in batch_series:
-            subset = df[df.iloc[:, 0] == batch]
+        # Define column indices for data (E, F, G, H -> 4, 5, 6, 7)
+        data_cols_indices = [4, 5, 6, 7] # Corresponds to E, F, G, H
+
+        for batch_val in batch_series:
+            batch = str(batch_val)
+            subset = df_data[df_data[batch_column_name] == batch_val]
             if subset.empty:
                 continue
-            try:
-                values_e = subset.iloc[0:5, 4] if subset.shape[1] > 4 else pd.Series(dtype='float64')
-                values_f = subset.iloc[0:5, 5] if subset.shape[1] > 5 else pd.Series(dtype='float64')
-                values_g = subset.iloc[0:5, 6] if subset.shape[1] > 6 else pd.Series(dtype='float64')
-                values_h = subset.iloc[0:5, 7] if subset.shape[1] > 7 else pd.Series(dtype='float64')
-                
-                def clean_numeric_value(val):
-                    if isinstance(val, str):
-                        if len(val) > 8 and not ' ' in val:
-                            numbers = re.findall(r'\d+\.\d+|\d+', val)
-                            if numbers:
-                                middle_index = len(numbers) // 2
-                                return float(numbers[middle_index])
-                            else:
-                                return np.nan
-                        else:
-                            try:
-                                return float(val)
-                            except:
-                                return np.nan
-                    elif isinstance(val, (int, float)):
-                         return float(val)
-                    else:
-                        return np.nan # Ensure non-numeric, non-string become NaN
-                
-                values_e = values_e.apply(clean_numeric_value)
-                values_f = values_f.apply(clean_numeric_value)
-                values_g = values_g.apply(clean_numeric_value)
-                values_h = values_h.apply(clean_numeric_value)
-                
-                stacked = pd.concat([values_e, values_f, values_g, values_h], ignore_index=True)
-                stacked = pd.to_numeric(stacked, errors='coerce').dropna()
-                
-                if not stacked.empty: # Add only if there is data
-                     result_df[str(batch)] = stacked # Ensure batch is string for column name
-            except Exception as e:
-                st.warning(f"Ada masalah saat memproses batch {batch}: {e}")
+            
+            all_batch_values = []
+            for col_idx in data_cols_indices:
+                if col_idx < subset.shape[1]: # Check if column exists
+                    # Assuming up to 5 values per column block for this test (20 total)
+                    col_values = subset.iloc[0:5, col_idx] 
+                    all_batch_values.append(col_values)
+            
+            if not all_batch_values:
+                st.warning(f"Tidak ada kolom data (E,F,G,H) ditemukan untuk batch {batch}.")
                 continue
-        
+
+            stacked_values = pd.concat(all_batch_values, ignore_index=True)
+
+            def clean_numeric_value(val):
+                if isinstance(val, str):
+                    # Try to extract number from concatenated strings like "123.456123.789"
+                    if len(val) > 8 and not ' ' in val and val.count('.') > 1: 
+                        numbers = re.findall(r'\d+\.?\d*', val) # find all number-like parts
+                        if numbers:
+                            # Heuristic: use the first one, or average, or middle one?
+                            # For now, let's try taking the one that seems most plausible if multiple are extracted
+                            # This case is tricky and depends on how data is malformed.
+                            # A simple approach might be to just try converting the first part.
+                            try: return float(numbers[0]) 
+                            except: pass # fallback if first part isn't a full number
+                    try:
+                        return float(val)
+                    except ValueError:
+                        return np.nan
+                elif isinstance(val, (int, float)):
+                    return float(val)
+                return np.nan
+
+            cleaned_values = stacked_values.apply(clean_numeric_value).dropna()
+            
+            if not cleaned_values.empty:
+                # Pad with NaN if less than 20 data points for consistent column length
+                target_length = 20
+                if len(cleaned_values) < target_length:
+                    padding = pd.Series([np.nan] * (target_length - len(cleaned_values)))
+                    cleaned_values = pd.concat([cleaned_values, padding], ignore_index=True)
+                result_df[batch] = cleaned_values[:target_length] # Ensure max 20 data points
+            else:
+                st.warning(f"Tidak ada data numerik valid yang ditemukan untuk batch {batch} setelah pembersihan.")
+
         if result_df.empty:
-            st.error("Tidak ada data valid yang dapat diproses.")
+            st.error("Tidak ada data Keseragaman Bobot valid yang dapat diproses.")
             return None
         
-        # Pad columns to the same length
-        max_len = 0
-        if not result_df.empty:
-             max_len = max(len(result_df[col]) for col in result_df.columns) if result_df.columns.size > 0 else 0
-
-        for col in result_df.columns:
-            if len(result_df[col]) < max_len:
-                padding = [np.nan] * (max_len - len(result_df[col]))
-                current_values = list(result_df[col])
-                current_values.extend(padding)
-                result_df[col] = pd.Series(current_values) # Ensure it's a Series
-
-        if max_len > 0:
-            result_df.index = range(1, max_len + 1)
+        result_df.index = range(1, len(result_df) + 1)
 
         st.write("Data Keseragaman Bobot Terstruktur:")
-        st.dataframe(result_df.style.format("{:.4f}", na_rep="")) # Format for display
+        st.dataframe(result_df.style.format("{:.4f}", na_rep=""))
         
         stats_df = calculate_statistics(result_df)
         st.write("Statistik Data Keseragaman Bobot:")
@@ -188,282 +199,222 @@ def parse_keseragaman_bobot_excel(file):
         return export_df
     except Exception as e:
         st.error(f"Gagal memproses file Keseragaman Bobot: {e}")
-        st.write("Detail error:", str(e))
+        st.exception(e)
         return None
 
 def parse_tebal_excel(file):
     try:
         df = pd.read_excel(file, header=None)
-        header_row = df.iloc[0]
-        df = df[1:]
-        df.columns = header_row
-        df.reset_index(drop=True, inplace=True)
-        batch_series = df.iloc[:, 0].dropna().unique()
-        result_df = pd.DataFrame()
-
-        for batch in batch_series:
-            subset = df[df.iloc[:, 0] == batch]
-            if subset.empty:
-                continue
-            try:
-                # Ensure columns exist before trying to access them
-                values_e = subset.iloc[0:3, 4].copy() if subset.shape[1] > 4 else pd.Series(dtype='float64')
-                values_f = subset.iloc[0:3, 5].copy() if subset.shape[1] > 5 else pd.Series(dtype='float64')
-                
-                def clean_numeric_value(val):
-                    if pd.isna(val):
-                        return np.nan
-                    if isinstance(val, (int, float)):
-                        return float(val)
-                    if isinstance(val, str):
-                        if len(val) > 8 and ' ' not in val:
-                            numbers = re.findall(r'\d+\.\d+|\d+', val)
-                            if numbers:
-                                middle_index = len(numbers) // 2
-                                return float(numbers[middle_index])
-                            else:
-                                return np.nan
-                        else:
-                            try:
-                                return float(val)
-                            except:
-                                return np.nan
-                    else:
-                        return np.nan
-                
-                values_e = values_e.apply(clean_numeric_value)
-                values_f = values_f.apply(clean_numeric_value)
-                
-                stacked = pd.concat([values_e, values_f], ignore_index=True)
-                stacked = pd.to_numeric(stacked, errors='coerce').dropna()
-                
-                if not stacked.empty:
-                    result_df[str(batch)] = stacked
-            except Exception as e:
-                st.warning(f"Ada masalah saat memproses batch {batch}: {e}")
-                continue
-        
-        if result_df.empty:
-            st.error("Tidak ada data valid yang dapat diproses.")
+        if df.empty:
+            st.error("File Tebal kosong.")
             return None
 
-        # Pad columns to the same length
-        max_len = 0
-        if not result_df.empty:
-            max_len = max(len(result_df[col]) for col in result_df.columns) if result_df.columns.size > 0 else 0
+        header_row_index = 0 # Assuming header is the first row
+        header_row = df.iloc[header_row_index]
+        df_data = df[header_row_index+1:].copy()
+        df_data.columns = header_row
+        df_data.reset_index(drop=True, inplace=True)
         
-        for col in result_df.columns:
-            if len(result_df[col]) < max_len:
-                padding = [np.nan] * (max_len - len(result_df[col]))
-                current_values = list(result_df[col])
-                current_values.extend(padding)
-                result_df[col] = pd.Series(current_values) # Ensure it's a Series
+        batch_column_name = df_data.columns[0] # Assuming first column is batch
+        batch_series = df_data[batch_column_name].dropna().unique()
+        result_df = pd.DataFrame()
 
-        if max_len > 0:
-            result_df.index = range(1, max_len + 1)
+        # Data from Column E (index 4) and F (index 5), typically 3 values each for 6 total
+        data_cols_indices = [4, 5] 
+        num_values_per_col = 3
 
-        stats = {
-            "MIN": result_df.min(),
-            "MAX": result_df.max(),
-            "MEAN": result_df.mean(),
-            "SD": result_df.std(),
-            "RSD (%)": (result_df.std() / result_df.mean()) * 100 if not result_df.mean().eq(0).any() else 0
-        }
-        stats_df = pd.DataFrame(stats).T
+        for batch_val in batch_series:
+            batch = str(batch_val)
+            subset = df_data[df_data[batch_column_name] == batch_val]
+            if subset.empty:
+                continue
+
+            all_batch_values = []
+            for col_idx in data_cols_indices:
+                if col_idx < subset.shape[1]: # Check column exists
+                    col_values = subset.iloc[0:num_values_per_col, col_idx]
+                    all_batch_values.append(col_values)
+            
+            if not all_batch_values:
+                st.warning(f"Tidak ada kolom data (E,F) ditemukan untuk batch {batch}.")
+                continue
+            
+            stacked_values = pd.concat(all_batch_values, ignore_index=True)
+
+            def clean_numeric_value(val): # Same cleaner as Keseragaman Bobot
+                if isinstance(val, str):
+                    if len(val) > 8 and not ' ' in val and val.count('.') > 1:
+                        numbers = re.findall(r'\d+\.?\d*', val)
+                        if numbers:
+                            try: return float(numbers[0])
+                            except: pass
+                    try:
+                        return float(val)
+                    except ValueError:
+                        return np.nan
+                elif isinstance(val, (int, float)):
+                    return float(val)
+                return np.nan
+            
+            cleaned_values = stacked_values.apply(clean_numeric_value).dropna()
+
+            if not cleaned_values.empty:
+                target_length = 6 # Typically 6 data points for Tebal
+                if len(cleaned_values) < target_length:
+                    padding = pd.Series([np.nan] * (target_length - len(cleaned_values)))
+                    cleaned_values = pd.concat([cleaned_values, padding], ignore_index=True)
+                result_df[batch] = cleaned_values[:target_length]
+            else:
+                 st.warning(f"Tidak ada data numerik valid yang ditemukan untuk batch tebal {batch} setelah pembersihan.")
+
+
+        if result_df.empty:
+            st.error("Tidak ada data Tebal valid yang dapat diproses.")
+            return None
         
-        # Ensure correct index for stats_df if result_df was empty or had no numeric data for stats
-        if not result_df.empty and max_len > 0:
-            max_idx_val = result_df.index.max() if result_df.index.size > 0 else 0
-        else: # Handle case where result_df might be empty or all NaN after processing
-            max_idx_val = 0
-            # If result_df is completely empty or all NaN, stats_df might also be all NaN or empty
-            # For display purposes, we create an empty result_df if it's None
-            if result_df.empty and not isinstance(result_df, pd.DataFrame):
-                result_df = pd.DataFrame()
-
-
-        # If stats_df is not empty, assign its index
-        if not stats_df.empty:
-             stats_df.index = ['MIN', 'MAX', 'MEAN', 'SD', 'RSD (%)']
-
-
-        combined_df = pd.concat([result_df, stats_df])
+        result_df.index = range(1, len(result_df) + 1)
         
-        # Prepare for display - add empty first column with labels for stats
-        # Create labels column
-        labels_list = [""] * len(result_df) + list(stats_df.index)
-        # Ensure combined_df has a compatible index before inserting
-        combined_df.reset_index(drop=True, inplace=True) # Reset index to simple range
-        combined_df.insert(0, "Statistik", labels_list[:len(combined_df)]) # Match length
-        
-        # Rename the index of combined_df for display purposes if needed
-        # Or just use the new "Statistik" column and hide index for st.dataframe
-        # For export, we might want the original structure without this "Statistik" column
-        # So, let's create a display_df and return the original combined_df for export
-        
-        display_final_df = combined_df.copy()
-        # The first column which was index now has labels, original index is gone
-        # For display, if the first column is named "Statistik", it's fine.
-        # For export, we might want the original format.
-        # The export_dataframe function handles index=True by default.
-        
-        # Let's return the dataframe that is logically combined_df before inserting the 'Statistik' column for display
-        exportable_df = pd.concat([result_df, stats_df])
+        stats_df = calculate_statistics(result_df)
+        exportable_df = pd.concat([result_df, stats_df]) # This is for export
+
+        # For display, add the statistics labels as the first column
+        display_df = exportable_df.copy()
+        stat_labels = [""] * len(result_df) + list(stats_df.index)
+        # Ensure the index of display_df is suitable for inserting labels
+        # If result_df has e.g. 6 rows, index 0-5. stats_df has 5 rows, index 0-4.
+        # Combined, 11 rows. stat_labels should match.
+        display_df.insert(0, "Keterangan", stat_labels)
 
 
         st.write("Data Tebal Terstruktur dengan Statistik:")
-        def format_values(val):
-            if isinstance(val, (int, float)) and not pd.isna(val):
-                return f"{val:.4f}"
-            return str(val) if pd.notna(val) else "" # ensure NaNs are empty strings
+        st.dataframe(display_df.style.format("{:.4f}", na_rep="").set_properties(**{'text-align': 'left'}).set_table_styles([dict(selector='th', props=[('text-align', 'left')])]))
         
-        # Use the display_final_df for st.dataframe
-        # Set the "Statistik" column as index for better display alignment
-        if "Statistik" in display_final_df.columns:
-            display_final_df.set_index("Statistik", inplace=True)
-
-        st.dataframe(display_final_df.applymap(format_values))
-        
-        return exportable_df # Return the original combined data for export
+        return exportable_df
 
     except Exception as e:
         st.error(f"Gagal memproses file Tebal: {e}")
-        st.write("Detail error:", str(e))
+        st.exception(e)
         return None
 
 def parse_waktu_hancur_friability_excel(file):
     try:
         df = pd.read_excel(file, header=None)
-        # st.write("Excel file loaded. Shape:", df.shape) # Debug
-        
+        if df.empty:
+            st.error("File Waktu Hancur/Friability kosong.")
+            return pd.DataFrame(), pd.DataFrame()
+            
         header_row_idx = None
-        batch_col = None
-        value_col = None
+        batch_col_idx = None # Column index for "Nomor Batch"
+        value_col_idx = None # Column index for "Sample Data"
         
-        for i in range(min(10, len(df))):
-            row = df.iloc[i]
-            for j, cell in enumerate(row):
-                if isinstance(cell, str) and "Nomor Batch" in cell:
-                    header_row_idx = i
-                    batch_col = j
-                    break
-            if header_row_idx is not None:
+        # Try to find header row and key columns ("Nomor Batch", "Sample Data")
+        for i in range(min(10, len(df))): # Check first 10 rows for header
+            row_values = df.iloc[i].astype(str) # Convert row to string for searching
+            if "Nomor Batch" in row_values.values:
+                header_row_idx = i
+                batch_col_idx = row_values[row_values.str.contains("Nomor Batch", case=False, na=False)].index[0]
+                # Try to find "Sample Data" in the same header row
+                if "Sample Data" in row_values.values:
+                     value_col_idx = row_values[row_values.str.contains("Sample Data", case=False, na=False)].index[0]
                 break
         
-        if header_row_idx is None:
+        if header_row_idx is None: # Fallback if "Nomor Batch" not explicitly found
+            st.warning("Header 'Nomor Batch' tidak ditemukan, menggunakan asumsi default (Baris 1 header, Kolom A Batch).")
             header_row_idx = 0
-            batch_col = 0 # Assume first column for batch if "Nomor Batch" not found
-            
-        if header_row_idx is not None:
-            header_row = df.iloc[header_row_idx]
-            for j, cell in enumerate(header_row):
-                if isinstance(cell, str) and "Sample Data" in cell: # Assuming "Sample Data" is the values column
-                    value_col = j
-                    break
+            batch_col_idx = 0 
         
-        if value_col is None: # Default if "Sample Data" not found
-             # Try to find a column that looks like data (numeric, often after batch and other info)
-             # A common pattern is column E (index 4)
-            if df.shape[1] > 4: # Check if column E exists
-                 value_col = 4
-            elif df.shape[1] > batch_col + 1: # Or the column right after batch_col if available
-                 value_col = batch_col + 1
-            else: # Fallback to a guess or raise error
-                 st.error("Tidak dapat menemukan kolom data (Sample Data). Harap periksa template.")
-                 return pd.DataFrame(), pd.DataFrame()
+        if value_col_idx is None: # Fallback for "Sample Data" column
+            # Common position for sample data is column E (index 4)
+            potential_value_col = 4 
+            if df.shape[1] > potential_value_col:
+                st.warning(f"Kolom 'Sample Data' tidak ditemukan, mengasumsikan data ada di kolom E (indeks {potential_value_col}).")
+                value_col_idx = potential_value_col
+            else: # Not enough columns for default
+                st.error("Tidak dapat menemukan kolom data ('Sample Data' atau default). Harap periksa template.")
+                return pd.DataFrame(), pd.DataFrame()
 
-
-        # st.write(f"Using header row: {header_row_idx}, Batch column: {batch_col}, Value column: {value_col}") # Debug
-        
+        # Set column names from identified header row
+        df.columns = df.iloc[header_row_idx]
         data_df = df.iloc[header_row_idx+1:].copy()
-        data_df = data_df[~data_df.iloc[:, batch_col].isna()] # Filter out rows with no batch numbers
         
-        friability_data = {}
-        waktu_hancur_data = {}
+        # Get actual column names using the indices
+        batch_col_name = data_df.columns[batch_col_idx]
+        value_col_name = data_df.columns[value_col_idx]
+
+        # Filter out rows where batch number is NaN
+        data_df = data_df[~data_df[batch_col_name].isna()]
+        
+        friability_data_dict = {} # Store as {batch: value}
+        waktu_hancur_data_dict = {} # Store as {batch: value}
         
         all_friability_values = []
         all_waktu_hancur_values = []
         
         for _, row in data_df.iterrows():
-            # Ensure row has enough columns before accessing
-            if row.shape[0] <= batch_col or row.shape[0] <= value_col:
-                st.warning(f"Melewatkan baris karena kekurangan kolom: {row}")
-                continue
-
-            batch = row.iloc[batch_col]
-            value = row.iloc[value_col] if not pd.isna(row.iloc[value_col]) else None
+            batch = str(row[batch_col_name])
+            value_raw = row[value_col_name]
             
-            if value is None:
+            if pd.isna(value_raw):
                 continue
             
             try:
-                value_float = float(value)
-                # Friability is typically a percentage loss, usually small (e.g., < 1.0% or < 2.5%)
-                # Disintegration time is in minutes or seconds, usually > 2.5 (unless it's seconds and very fast)
-                # This threshold (2.5) is a heuristic and might need adjustment based on typical data ranges.
-                if value_float < 2.5: # Heuristic for friability (percentage)
-                    if str(batch) not in friability_data: # Take first value encountered for a batch
-                         friability_data[str(batch)] = value_float
+                value_float = float(value_raw)
+                # Heuristic: Friability values are typically small percentages (< 2.5%)
+                # Waktu Hancur values are typically larger (time in minutes/seconds)
+                if value_float < 2.5: # Assumed Friability
+                    if batch not in friability_data_dict: # Take first value for a batch
+                        friability_data_dict[batch] = value_float
                     all_friability_values.append(value_float)
-                else: # Heuristic for disintegration time (minutes or larger values)
-                    if str(batch) not in waktu_hancur_data: # Take first value encountered for a batch
-                        waktu_hancur_data[str(batch)] = value_float
+                else: # Assumed Waktu Hancur
+                    if batch not in waktu_hancur_data_dict: # Take first value for a batch
+                        waktu_hancur_data_dict[batch] = value_float
                     all_waktu_hancur_values.append(value_float)
             except (ValueError, TypeError):
-                st.warning(f"Skipping row with batch {batch}, invalid value for conversion to float: {value}")
+                st.warning(f"Melewatkan baris untuk batch {batch}, nilai tidak valid: {value_raw}")
                 continue
         
-        # Waktu Hancur processing
+        # Create Waktu Hancur DataFrame
         waktu_hancur_df = pd.DataFrame()
-        if waktu_hancur_data:
-            batch_df_wh = pd.DataFrame({
-                "Batch": list(waktu_hancur_data.keys()),
-                "Waktu Hancur": list(waktu_hancur_data.values())
-            }).sort_values("Batch").reset_index(drop=True)
-
-            wh_min = min(all_waktu_hancur_values) if all_waktu_hancur_values else np.nan
-            wh_max = max(all_waktu_hancur_values) if all_waktu_hancur_values else np.nan
+        if waktu_hancur_data_dict:
+            batch_df_wh = pd.DataFrame(list(waktu_hancur_data_dict.items()), columns=["Batch", "Waktu Hancur"]).sort_values("Batch").reset_index(drop=True)
+            wh_min = np.min(all_waktu_hancur_values) if all_waktu_hancur_values else np.nan
+            wh_max = np.max(all_waktu_hancur_values) if all_waktu_hancur_values else np.nan
             wh_mean = np.mean(all_waktu_hancur_values) if all_waktu_hancur_values else np.nan
             wh_sd = np.std(all_waktu_hancur_values, ddof=1) if len(all_waktu_hancur_values) > 1 else np.nan
             wh_rsd = (wh_sd / wh_mean * 100) if wh_mean and wh_mean != 0 else np.nan
-            
             stats_df_wh = pd.DataFrame({
                 "Batch": ["Minimum", "Maximum", "Rata-rata", "Standar Deviasi", "RSD (%)"],
                 "Waktu Hancur": [wh_min, wh_max, wh_mean, wh_sd, wh_rsd]
             })
             waktu_hancur_df = pd.concat([batch_df_wh, stats_df_wh], ignore_index=True)
 
-        # Friability processing
+        # Create Friability DataFrame
         friability_df = pd.DataFrame()
-        if friability_data:
-            batch_df_fr = pd.DataFrame({
-                "Batch": list(friability_data.keys()),
-                "Friability": list(friability_data.values())
-            }).sort_values("Batch").reset_index(drop=True)
-
-            fr_min = min(all_friability_values) if all_friability_values else np.nan
-            fr_max = max(all_friability_values) if all_friability_values else np.nan
+        if friability_data_dict:
+            batch_df_fr = pd.DataFrame(list(friability_data_dict.items()), columns=["Batch", "Friability"]).sort_values("Batch").reset_index(drop=True)
+            fr_min = np.min(all_friability_values) if all_friability_values else np.nan
+            fr_max = np.max(all_friability_values) if all_friability_values else np.nan
             fr_mean = np.mean(all_friability_values) if all_friability_values else np.nan
             fr_sd = np.std(all_friability_values, ddof=1) if len(all_friability_values) > 1 else np.nan
             fr_rsd = (fr_sd / fr_mean * 100) if fr_mean and fr_mean != 0 else np.nan
-
             stats_df_fr = pd.DataFrame({
                 "Batch": ["Minimum", "Maximum", "Rata-rata", "Standar Deviasi", "RSD (%)"],
                 "Friability": [fr_min, fr_max, fr_mean, fr_sd, fr_rsd]
             })
             friability_df = pd.concat([batch_df_fr, stats_df_fr], ignore_index=True)
 
+        # Display tables
         if not waktu_hancur_df.empty:
             st.write("Tabel Waktu Hancur dengan Statistik:")
             st.dataframe(waktu_hancur_df.style.format({"Waktu Hancur": "{:.4f}", "Batch": "{}"}, na_rep=""))
         else:
-            st.info("Tidak ada data Waktu Hancur yang diproses.")
+            st.info("Tidak ada data Waktu Hancur yang diproses atau ditemukan.")
             
         if not friability_df.empty:
             st.write("Tabel Friability dengan Statistik:")
             st.dataframe(friability_df.style.format({"Friability": "{:.4f}", "Batch": "{}"}, na_rep=""))
         else:
-            st.info("Tidak ada data Friability yang diproses.")
+            st.info("Tidak ada data Friability yang diproses atau ditemukan.")
             
         return waktu_hancur_df, friability_df
     except Exception as e:
@@ -471,33 +422,17 @@ def parse_waktu_hancur_friability_excel(file):
         st.exception(e)
         return pd.DataFrame(), pd.DataFrame()
 
-def export_dataframe(df, filename="data_export"):
+
+def get_excel_for_download(df):
+    """
+    Prepares a DataFrame for Excel download by writing it to an in-memory BytesIO object.
+    """
     output = io.BytesIO()
-    # When exporting, we don't want the Styler proxy, but the actual DataFrame.
-    # Also, ensure the index is handled as desired for export.
-    # If the DataFrame has a meaningful index (like batch names or stats labels), export it.
-    # If the index is just a range, it might be omitted (index=False).
-    # For these tables, the first column often acts as a label, or the actual index is meaningful.
-    
-    # If 'Statistik' column was added and set as index for display (like in Tebal),
-    # we might want to reset it for export or ensure the original df is passed.
-    # The parsing functions should return the "clean" DataFrame for export.
-
-    # Check if the first column is 'Statistik' and set as index for export
-    # This is a bit tricky as 'df' here could be from various parsers.
-    # Generally, the DataFrames passed here should be ready for export.
-    # The `index=True` is default and usually good if index has meaning.
-
-    df_to_export = df.copy()
-    # If 'Statistik' is the name of the index, it will be exported as the first column.
-    # If 'Statistik' is a regular column and index is a range, that's also fine.
-
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df_to_export.to_excel(writer, index=True) # Keep index for most cases
-    output.seek(0)
-    b64 = base64.b64encode(output.read()).decode()
-    href = f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="{filename}.xlsx">📥 Download {filename.replace("_", " ").title()} Excel File</a>'
-    return href
+        df.to_excel(writer, index=True) # Keep index for export, as it often contains valuable labels
+    output.seek(0) # Rewind the buffer to the beginning
+    return output # Return the BytesIO object
+
 
 def tampilkan_ipc():
     st.title("Halaman IPC")
@@ -511,85 +446,114 @@ def tampilkan_ipc():
             "Tebal",
             "Waktu Hancur dan Friability"
         ],
-        horizontal=True
+        horizontal=True,
+        key="ipc_test_selection" # Unique key for the radio button
     )
     
     template_info = {
-        "Kekerasan": "Template Excel untuk pengujian kekerasan",
-        "Keseragaman Bobot": "Template Excel untuk pengujian keseragaman bobot",
-        "Tebal": "Template Excel untuk pengujian tebal",
-        "Waktu Hancur dan Friability": "Template Excel untuk pengujian waktu hancur dan friability (kolom 'Nomor Batch' dan 'Sample Data')"
+        "Kekerasan": "Template Excel untuk pengujian kekerasan.",
+        "Keseragaman Bobot": "Template Excel untuk pengujian keseragaman bobot.",
+        "Tebal": "Template Excel untuk pengujian tebal.",
+        "Waktu Hancur dan Friability": "Template Excel untuk pengujian waktu hancur dan friability (pastikan ada kolom 'Nomor Batch' dan 'Sample Data')."
     }
     
     st.info(f"Upload file Excel dengan format: {template_info[selected_option]}")
     
-    uploaded_file = st.file_uploader("Upload file Excel sesuai template", type=["xlsx","ods"], key=f"uploader_{selected_option.replace(' ', '_')}") # Ensure unique key
+    # Ensure unique key for file_uploader based on selected_option to reset it when option changes
+    uploader_key = f"uploader_{selected_option.replace(' ', '_').lower()}"
+    uploaded_file = st.file_uploader("Upload file Excel sesuai template", type=["xlsx","ods"], key=uploader_key)
     
     if uploaded_file:
-        file_copy = io.BytesIO(uploaded_file.getvalue())
-        st.success(f"File untuk pengujian {selected_option} berhasil diupload")
+        file_copy = io.BytesIO(uploaded_file.getvalue()) # Work with a copy
+        st.success(f"File untuk pengujian {selected_option} berhasil diupload: {uploaded_file.name}")
         st.subheader(f"Hasil Pengujian {selected_option}")
         
-        df_result = None # For single df results
-        df_result_wh = None # For waktu hancur
-        df_result_fr = None # For friability
+        df_result = None 
+        df_result_wh = None 
+        df_result_fr = None
 
         if selected_option == "Kekerasan":
             df_result = parse_kekerasan_excel(file_copy)
             if df_result is not None and not df_result.empty:
                 filename = "data_kekerasan"
-                st.markdown(export_dataframe(df_result, filename), unsafe_allow_html=True)
-                st.success(f"{filename.replace('_', ' ').title()} siap diunduh. Klik tombol di atas.")
-            elif df_result is not None and df_result.empty: # Parser returned empty df (valid case, no data)
-                 st.info("Tidak ada data valid yang ditemukan dalam file untuk diproses.")
-            # If df_result is None, error was already shown by parser
+                excel_bytes_io = get_excel_for_download(df_result)
+                st.download_button(
+                    label=f"📥 Download Data Kekerasan",
+                    data=excel_bytes_io,
+                    file_name=f"{filename}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            elif df_result is not None: # Empty dataframe, means no valid data found by parser
+                 st.info("Tidak ada data kekerasan valid yang ditemukan dalam file untuk diproses.")
+            # If df_result is None, error already shown by parser
 
         elif selected_option == "Keseragaman Bobot":
             df_result = parse_keseragaman_bobot_excel(file_copy)
             if df_result is not None and not df_result.empty:
                 filename = "data_keseragaman_bobot"
-                st.markdown(export_dataframe(df_result, filename), unsafe_allow_html=True)
-                st.success(f"{filename.replace('_', ' ').title()} siap diunduh. Klik tombol di atas.")
-            elif df_result is not None and df_result.empty:
-                 st.info("Tidak ada data valid yang ditemukan dalam file untuk diproses.")
+                excel_bytes_io = get_excel_for_download(df_result)
+                st.download_button(
+                    label=f"📥 Download Data Keseragaman Bobot",
+                    data=excel_bytes_io,
+                    file_name=f"{filename}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            elif df_result is not None:
+                 st.info("Tidak ada data keseragaman bobot valid yang ditemukan dalam file untuk diproses.")
 
         elif selected_option == "Tebal":
-            df_result = parse_tebal_excel(file_copy) # This should return the data for export
+            df_result = parse_tebal_excel(file_copy) 
             if df_result is not None and not df_result.empty:
                 filename = "data_tebal"
-                st.markdown(export_dataframe(df_result, filename), unsafe_allow_html=True)
-                st.success(f"{filename.replace('_', ' ').title()} siap diunduh. Klik tombol di atas.")
-            elif df_result is not None and df_result.empty:
-                 st.info("Tidak ada data valid yang ditemukan dalam file untuk diproses.")
+                excel_bytes_io = get_excel_for_download(df_result)
+                st.download_button(
+                    label=f"📥 Download Data Tebal",
+                    data=excel_bytes_io,
+                    file_name=f"{filename}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            elif df_result is not None:
+                 st.info("Tidak ada data tebal valid yang ditemukan dalam file untuk diproses.")
         
         elif selected_option == "Waktu Hancur dan Friability":
             df_result_wh, df_result_fr = parse_waktu_hancur_friability_excel(file_copy)
             
             if df_result_wh is not None and not df_result_wh.empty:
-                st.markdown(export_dataframe(df_result_wh, "data_waktu_hancur"), unsafe_allow_html=True)
-                st.success("Data Waktu Hancur siap diunduh. Klik tombol di atas.")
-            elif df_result_wh is not None and df_result_wh.empty : # Parser returned empty but valid df
-                st.info("Tidak ada data Waktu Hancur yang valid untuk diunduh (mungkin tidak ada data atau semua data tidak memenuhi kriteria).")
+                excel_bytes_io_wh = get_excel_for_download(df_result_wh)
+                st.download_button(
+                    label="📥 Download Data Waktu Hancur",
+                    data=excel_bytes_io_wh,
+                    file_name="data_waktu_hancur.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="download_wh"
+                )
+            elif df_result_wh is not None: # Parser returned an empty (but valid) DataFrame
+                st.info("Tidak ada data Waktu Hancur yang valid untuk diunduh (mungkin tidak ada data yang memenuhi kriteria).")
             
             if df_result_fr is not None and not df_result_fr.empty:
-                st.markdown(export_dataframe(df_result_fr, "data_friability"), unsafe_allow_html=True)
-                st.success("Data Friability siap diunduh. Klik tombol di atas.")
-            elif df_result_fr is not None and df_result_fr.empty:
-                st.info("Tidak ada data Friability yang valid untuk diunduh (mungkin tidak ada data atau semua data tidak memenuhi kriteria).")
+                excel_bytes_io_fr = get_excel_for_download(df_result_fr)
+                st.download_button(
+                    label="📥 Download Data Friability",
+                    data=excel_bytes_io_fr,
+                    file_name="data_friability.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="download_fr"
+                )
+            elif df_result_fr is not None:
+                st.info("Tidak ada data Friability yang valid untuk diunduh (mungkin tidak ada data yang memenuhi kriteria).")
 
-        # Option to display all data in a table (for single df results)
+        # Option to display processed data (before download)
         if selected_option != "Waktu Hancur dan Friability":
             if df_result is not None and not df_result.empty:
-                if st.checkbox("Tampilkan semua data dalam bentuk tabel (data yang akan diexport)", key=f"show_table_{selected_option.replace(' ', '_')}"):
-                    st.write("Data Lengkap (termasuk statistik):")
-                    # Use a simple display for the checkbox data, formatting is already done by parser or can be minimal
-                    st.dataframe(df_result) 
-            elif df_result is None and uploaded_file: # If parsing failed and returned None
+                show_table_key = f"show_table_{selected_option.replace(' ', '_').lower()}"
+                if st.checkbox("Tampilkan tabel data yang akan diekspor", key=show_table_key):
+                    st.write("Data Lengkap (sesuai format ekspor):")
+                    st.dataframe(df_result.style.format(na_rep="")) # Basic display for checkbox
+            elif df_result is None and uploaded_file: 
                 st.warning("Tidak ada tabel untuk ditampilkan karena terjadi kesalahan saat pemrosesan file atau file tidak valid.")
+    elif st.session_state.get(uploader_key) is not None: # If a file was previously uploaded but now cleared
+        st.info("Unggah file Excel baru untuk memulai analisis.")
 
 
-# Main app execution (if you run this script directly)
 if __name__ == '__main__':
-    # You would typically have a main app structure here if this is part of a larger app
-    # For now, just calling tampilkan_ipc() to make it runnable as a standalone page
     tampilkan_ipc()
