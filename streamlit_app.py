@@ -18,6 +18,7 @@ from ipc_page import tampilkan_ipc
 from bahan_page import tampilkan_bahan
 from filter_labelqc import filter_labelqc
 from produk_obat import tampilkan_obat
+from cqa_ekstrak import process_multiple_excel_files
 
 # --- Navigasi
 menu = st.sidebar.radio("Navigasi", ["Critical Quality Attribute (CQA)", "In Process Control (IPC)", "CPP BAHAN", "CPP Produk Bahan Obat", "CQA EKSTRAK"])
