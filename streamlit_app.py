@@ -20,7 +20,7 @@ from filter_labelqc import filter_labelqc
 from produk_obat import tampilkan_obat
 
 # --- Navigasi
-menu = st.sidebar.radio("Navigasi", ["Critical Quality Attribute (CQA)", "In Process Control (IPC)", "CPP BAHAN", "CPP Produk Bahan Obat"])
+menu = st.sidebar.radio("Navigasi", ["Critical Quality Attribute (CQA)", "In Process Control (IPC)", "CPP BAHAN", "CPP Produk Bahan Obat", "CQA EKSTRAK"])
 
 # --- Logika Halaman
 if menu == "In Process Control (IPC)":
@@ -45,6 +45,10 @@ if menu == "CPP BAHAN":
 
 if menu == "CPP Produk Bahan Obat": 
     tampilkan_obat() 
+    st.stop()
+
+if menu == "CQA EKSTRAK": 
+    process_multiple_excel_files() 
     st.stop()
     
 # Jika tidak pilih IPC atau CPP BAHAN, jalankan halaman CQA
