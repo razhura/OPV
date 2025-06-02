@@ -109,16 +109,17 @@ def normalize_columns(df):
     return df
 
 
-def transform_batch_data(df, formula_name="Formula Tidak Diketahui"):
+# def transform_batch_data(df, formula_name="Formula Tidak Diketahui"): # OLD SIGNATURE
+def transform_batch_data(df): # NEW SIGNATURE - remove formula_name parameter
     """
-    Transform batch data dan tambahkan nama formula sebagai kolom pertama
+    Transform batch data. Nama formula column is removed.
     """
     selected_cols = [
         'Nomor Batch',
         'No. Order Produksi',
         'Jalur',
         'Kode Bahan',
-        'Nama Bahan Formula', # Changed from 'Nama Bahan' to 'Nama Bahan Formula'
+        'Nama Bahan Formula',
         'Kuantiti > Terpakai',
         'Kuantiti > Rusak',
         'No Lot Supplier',
@@ -131,31 +132,27 @@ def transform_batch_data(df, formula_name="Formula Tidak Diketahui"):
 
     df = df[selected_cols].copy()
     
-    # Dapatkan urutan unik batch berdasarkan kemunculan pertama dalam data asli
     batch_order = df['Nomor Batch'].drop_duplicates().tolist()
-    
-    # Group berdasarkan batch, tapi pertahankan urutan asli
     grouped = df.groupby('Nomor Batch', sort=False)
 
     transformed_rows = []
     max_items = 0
 
-    # Proses batch sesuai urutan kemunculan asli
     for batch in batch_order:
         if batch in grouped.groups:
             group = grouped.get_group(batch)
             
-            # Ambil No. Order Produksi dan Jalur dari baris pertama kelompok
             order_produksi = group.iloc[0]['No. Order Produksi']
             jalur = group.iloc[0]['Jalur']
 
-            # Mulai dengan nama formula, batch, order produksi, dan jalur
-            row_data = [formula_name, batch, order_produksi, jalur]
+            # MODIFIED: Remove formula_name from here
+            # row_data = [formula_name, batch, order_produksi, jalur] # OLD
+            row_data = [batch, order_produksi, jalur] # NEW
 
             for _, item in group.iterrows():
                 row_data.extend([
                     item['Kode Bahan'],
-                    item['Nama Bahan Formula'], # Changed from 'Nama Bahan' to 'Nama Bahan Formula'
+                    item['Nama Bahan Formula'],
                     item['Kuantiti > Terpakai'],
                     item['Kuantiti > Rusak'],
                     item['No Lot Supplier'],
@@ -165,17 +162,19 @@ def transform_batch_data(df, formula_name="Formula Tidak Diketahui"):
             max_items = max(max_items, len(group))
             transformed_rows.append(row_data)
 
-    # Panjang baris penuh: 1 (formula) + 3 (batch info) + max_items * 6 (data bahan)
-    full_row_len = 4 + max_items * 6
+    # MODIFIED: Adjust full_row_len (from 4 to 3 base columns)
+    # full_row_len = 4 + max_items * 6 # OLD
+    full_row_len = 3 + max_items * 6 # NEW
     for row in transformed_rows:
         row.extend([''] * (full_row_len - len(row)))
 
-    # Header dengan nama formula di awal
-    headers = ['Nama Formula', 'Nomor Batch', 'No. Order Produksi', 'Jalur']
+    # MODIFIED: Remove 'Nama Formula' from headers
+    # headers = ['Nama Formula', 'Nomor Batch', 'No. Order Produksi', 'Jalur'] # OLD
+    headers = ['Nomor Batch', 'No. Order Produksi', 'Jalur'] # NEW
     for i in range(1, max_items + 1):
         headers.extend([
             f"Kode Bahan {i}",
-            f"Nama Bahan Formula {i}", # Changed from 'Nama Bahan' to 'Nama Bahan Formula'
+            f"Nama Bahan Formula {i}",
             f"Kuantiti > Terpakai {i}",
             f"Kuantiti > Rusak {i}",
             f"No Lot Supplier {i}",
@@ -183,7 +182,6 @@ def transform_batch_data(df, formula_name="Formula Tidak Diketahui"):
         ])
 
     return pd.DataFrame(transformed_rows, columns=headers)
-
 
 def simplify_headers(df):
     # Hapus penomoran di akhir kolom seperti "Kode Bahan 1" → "Kode Bahan"
@@ -471,80 +469,100 @@ def tampilkan_bahan():
     uploaded_file = st.file_uploader("Upload file Excel", type=["xlsx"])
 
     if uploaded_file is not None:
-        # Ekstrak nama formula dari file Excel
-        formula_name = get_formula_name_from_excel(uploaded_file)
-        st.info(f"Nama Formula Terdeteksi: **{formula_name}**")
-        
-        combined_headers = extract_headers_from_rows_10_and_11(uploaded_file)
+        # REMOVE/COMMENT OUT these lines related to formula_name
+        # formula_name = get_formula_name_from_excel(uploaded_file)
+        # st.info(f"Nama Formula Terdeteksi: **{formula_name}**")
+
+        # Perlu memuat ulang file untuk openpyxl karena Streamlit uploaded_file adalah BytesIO
+        # yang mungkin sudah dibaca oleh pd.read_excel
+        file_content_for_openpyxl = io.BytesIO(uploaded_file.getvalue())
+        combined_headers = extract_headers_from_rows_10_and_11(file_content_for_openpyxl)
+
+        # Kembalikan pointer file ke awal untuk dibaca oleh pd.read_excel
+        uploaded_file.seek(0)
         df_asli = pd.read_excel(uploaded_file, skiprows=2, header=None)
-        df_asli.columns = combined_headers
+        if len(df_asli.columns) == len(combined_headers):
+            df_asli.columns = combined_headers
+        else:
+            st.warning(f"Jumlah header yang diekstrak ({len(combined_headers)}) tidak cocok dengan jumlah kolom data ({len(df_asli.columns)}). Menggunakan header default.")
+            # Fallback jika ada ketidaksesuaian, atau tangani error dengan lebih spesifik
+
 
         try:
             st.subheader("📄 Data Excel Asli")
             st.dataframe(df_asli)
-            st.info(f"Kolom yang terdeteksi: {', '.join(df_asli.columns.tolist())}")
+            if not df_asli.empty:
+                 st.info(f"Kolom yang terdeteksi: {', '.join(df_asli.columns.tolist())}")
 
             if st.button("🔍 Ekstrak Data Batch"):
                 with st.spinner("Memproses data..."):
-                    df_asli = normalize_columns(df_asli)
-                    # Pass formula name ke fungsi transform
-                    result_df = transform_batch_data(df_asli, formula_name)
+                    df_normalized = normalize_columns(df_asli.copy()) # Bekerja dengan salinan
+                    # MODIFIED: Call transform_batch_data without formula_name
+                    result_df = transform_batch_data(df_normalized) # NEW
 
                     st.session_state.result_df = result_df
                     st.session_state.processed = True
-                    
-                    unique_bahan_names = get_unique_bahan_names(result_df)
-                    st.session_state.unique_bahan_names = unique_bahan_names
-                    
-                    unique_batch_numbers = get_unique_batch_numbers(result_df)
-                    st.session_state.unique_batch_numbers = unique_batch_numbers
+
+                    if not result_df.empty:
+                        unique_bahan_names = get_unique_bahan_names(result_df)
+                        st.session_state.unique_bahan_names = unique_bahan_names
+
+                        unique_batch_numbers = get_unique_batch_numbers(result_df)
+                        st.session_state.unique_batch_numbers = unique_batch_numbers
+                    else:
+                        st.session_state.unique_bahan_names = []
+                        st.session_state.unique_batch_numbers = []
+                        st.warning("Hasil ekstraksi data batch kosong.")
+
 
                     st.subheader("🔢 Hasil Ekstraksi Data Batch")
                     st.dataframe(result_df)
 
-                    # Ekspor CSV
-                    csv_df = simplify_headers(result_df.copy())
-                    csv = csv_df.to_csv(index=False)
-                    st.download_button(
-                        label="📥 Download Data Hasil Ekstraksi (CSV)",
-                        data=csv,
-                        file_name="data_batch_extracted.csv",
-                        mime="text/csv"
-                    )
+                    if not result_df.empty:
+                        # Ekspor CSV
+                        csv_df = simplify_headers(result_df.copy())
+                        csv = csv_df.to_csv(index=False)
+                        st.download_button(
+                            label="📥 Download Data Hasil Ekstraksi (CSV)",
+                            data=csv,
+                            file_name="data_batch_extracted.csv",
+                            mime="text/csv",
+                            key="download_csv_ekstraksi" # Tambahkan key
+                        )
 
-                    # Ekspor Excel
-                    excel_df = simplify_headers(result_df.copy())
-                    buffer = io.BytesIO()
-                    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                        excel_df.to_excel(writer, index=False, sheet_name='Batch Data')
-                    buffer.seek(0)
+                        # Ekspor Excel
+                        excel_df = simplify_headers(result_df.copy())
+                        buffer = io.BytesIO()
+                        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                            excel_df.to_excel(writer, index=False, sheet_name='Batch Data')
+                        buffer.seek(0)
 
-                    st.download_button(
-                        label="📥 Download Data Hasil Ekstraksi (Excel)",
-                        data=buffer,
-                        file_name="data_batch_extracted.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
+                        st.download_button(
+                            label="📥 Download Data Hasil Ekstraksi (Excel)",
+                            data=buffer,
+                            file_name="data_batch_extracted.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            key="download_excel_ekstraksi" # Tambahkan key
+                        )
 
             # Tampilkan tombol merge jika data telah diproses
-            if 'processed' in st.session_state and st.session_state.processed:
-                # Tambahkan tombol untuk merge data bahan yang sama
+            if 'processed' in st.session_state and st.session_state.processed and not st.session_state.result_df.empty:
                 if st.button("🔄 Kelompokkan Bahan yang Sama"):
                     with st.spinner("Mengelompokkan data bahan yang sama..."):
-                        merged_df = merge_same_materials(st.session_state.result_df)
-                        st.session_state.result_df = merged_df
-                        
-                        # Update unique bahan names dan batch numbers
+                        merged_df = merge_same_materials(st.session_state.result_df.copy()) # Bekerja dengan salinan
+                        st.session_state.result_df = merged_df # Update result_df dengan hasil merge
+
+                        # Update unique bahan names dan batch numbers dari merged_df
                         unique_bahan_names = get_unique_bahan_names(merged_df)
                         st.session_state.unique_bahan_names = unique_bahan_names
-                        
+
                         unique_batch_numbers = get_unique_batch_numbers(merged_df)
                         st.session_state.unique_batch_numbers = unique_batch_numbers
-                        
+
                         st.subheader("✅ Data Setelah Pengelompokan Bahan")
                         st.dataframe(merged_df)
                         st.success("Data bahan yang sama telah dikelompokkan!")
-                        
+
                         # Ekspor hasil merge
                         csv_merged = simplify_headers(merged_df.copy()).to_csv(index=False)
                         st.download_button(
@@ -552,142 +570,204 @@ def tampilkan_bahan():
                             data=csv_merged,
                             file_name="data_batch_merged.csv",
                             mime="text/csv",
-                            key="csv_merged"
+                            key="csv_merged_download" # Key yang sudah ada
                         )
-                        
+
                         buffer_merged = io.BytesIO()
                         with pd.ExcelWriter(buffer_merged, engine='openpyxl') as writer:
                             simplify_headers(merged_df.copy()).to_excel(writer, index=False, sheet_name='Merged Data')
                         buffer_merged.seek(0)
-                        
+
                         st.download_button(
                             label="📥 Download Data Terkelompok (Excel)",
                             data=buffer_merged,
                             file_name="data_batch_merged.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            key="excel_merged"
+                            key="excel_merged_download" # Key yang sudah ada
                         )
 
                 # Tab untuk filter berdasarkan nomor batch atau nama bahan
                 tab1, tab2 = st.tabs(["🔍 Filter Berdasarkan Nomor Batch", "🔍 Filter Berdasarkan Nama Bahan"])
-                
+
                 with tab1:
                     st.subheader("🔍 Filter Data Berdasarkan Nomor Batch")
-                    
-                    unique_batch_numbers = st.session_state.unique_batch_numbers
-                    
-                    col1, col2 = st.columns([1, 4])
-                    with col1:
-                        if st.button("Pilih Semua Batch"):
-                            st.session_state.selected_batch_numbers = unique_batch_numbers
-                    
-                    if 'selected_batch_numbers' not in st.session_state:
-                        st.session_state.selected_batch_numbers = []
-                    
-                    with col2:
-                        selected_batch_numbers = st.multiselect(
-                            "Pilih Nomor Batch:",
-                            unique_batch_numbers,
-                            default=st.session_state.selected_batch_numbers,
-                            key="batch_multiselect"
-                        )
-                        st.session_state.selected_batch_numbers = selected_batch_numbers
-                    
-                    if selected_batch_numbers:
-                        for selected_batch in selected_batch_numbers:
-                            filtered_df = create_filtered_table_by_batch(st.session_state.result_df, selected_batch)
-                            safe_filename = re.sub(r'[^\w\s-]', '', str(selected_batch)).strip().replace(' ', '_').replace('/', '_')
-                            
-                            if not filtered_df.empty:
-                                st.subheader(f"📊 Data Batch - {selected_batch}")
-                                st.dataframe(filtered_df)
-                                
-                                csv_filtered = filtered_df.to_csv(index=False)
-                                st.download_button(
-                                    label=f"📥 Download Batch {selected_batch} (CSV)",
-                                    data=csv_filtered,
-                                    file_name=f"batch_{safe_filename}.csv",
-                                    mime="text/csv",
-                                    key=f"csv_batch_{safe_filename}"
-                                )
-                                
-                                buffer_filtered = io.BytesIO()
-                                with pd.ExcelWriter(buffer_filtered, engine='openpyxl') as writer:
-                                    filtered_df.to_excel(writer, index=False, sheet_name='Batch Data')
-                                buffer_filtered.seek(0)
-                                
-                                st.download_button(
-                                    label=f"📥 Download Batch {selected_batch} (Excel)",
-                                    data=buffer_filtered,
-                                    file_name=f"batch_{safe_filename}.xlsx",
-                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                    key=f"excel_batch_{safe_filename}"
-                                )
-                            else:
-                                st.warning(f"Tidak ada data untuk batch {selected_batch}")
-                            
-                            st.markdown("---")
 
+                    if 'result_df' not in st.session_state or st.session_state.result_df.empty:
+                        st.warning("Belum ada data yang diproses atau hasil proses kosong. Silakan unggah file dan ekstrak data terlebih dahulu.")
+                    elif 'Nomor Batch' not in st.session_state.result_df.columns:
+                        st.error("Kolom 'Nomor Batch' tidak ditemukan pada data yang telah diproses.")
+                    elif not st.session_state.get('unique_batch_numbers'): # Cek jika unique_batch_numbers kosong
+                        st.info("Tidak ada nomor batch unik yang tersedia untuk difilter.")
+                    else:
+                        unique_batch_numbers_for_filter = st.session_state.unique_batch_numbers
+
+                        col1_filter_batch, col2_filter_batch = st.columns([1, 4])
+                        with col1_filter_batch:
+                            if st.button("Pilih Semua Batch", key="pilih_semua_batch_filter_btn"):
+                                st.session_state.selected_batch_numbers_filter = unique_batch_numbers_for_filter # Gunakan variabel berbeda untuk state filter ini
+                                # Tidak perlu rerun manual, Streamlit akan rerun
+                        
+                        current_selected_batches_filter = st.session_state.get('selected_batch_numbers_filter', [])
+
+
+                        with col2_filter_batch:
+                            selected_batch_numbers_filter_val = st.multiselect(
+                                "Pilih Nomor Batch:",
+                                unique_batch_numbers_for_filter,
+                                default=current_selected_batches_filter,
+                                key="batch_multiselect_filter_key"
+                            )
+                            st.session_state.selected_batch_numbers_filter = selected_batch_numbers_filter_val
+
+                        if selected_batch_numbers_filter_val:
+                            num_selected = len(selected_batch_numbers_filter_val)
+
+                            if num_selected > 1:
+                                # --- AWAL LOGIKA TABEL GABUNGAN (JIKA > 2 BATCH DIPILIH) ---
+                                st.markdown("---")
+                                combined_df_filtered = st.session_state.result_df[
+                                    st.session_state.result_df['Nomor Batch'].isin(selected_batch_numbers_filter_val)
+                                ].copy()
+
+                                if not combined_df_filtered.empty:
+                                    st.subheader(f"📊 Data Gabungan untuk {num_selected} Batch Terpilih")
+                                    st.dataframe(combined_df_filtered)
+
+                                    selected_batches_filenames = sorted([str(b) for b in selected_batch_numbers_filter_val])
+                                    combined_filename_part = "_".join(selected_batches_filenames)
+                                    safe_combined_filename = re.sub(r'[^\w\s-]', '', combined_filename_part).strip().replace(' ', '_').replace('/', '_')
+                                    if len(safe_combined_filename) > 50:
+                                        safe_combined_filename = safe_combined_filename[:50] + "_etc"
+                                    final_combined_filename = f"data_batch_gabungan_{safe_combined_filename}"
+
+                                    csv_combined_filtered = combined_df_filtered.to_csv(index=False)
+                                    st.download_button(
+                                        label="📥 Download Data Gabungan (CSV)",
+                                        data=csv_combined_filtered,
+                                        file_name=f"{final_combined_filename}.csv",
+                                        mime="text/csv",
+                                        key=f"csv_combined_filter_{final_combined_filename}"
+                                    )
+
+                                    buffer_combined_filtered = io.BytesIO()
+                                    with pd.ExcelWriter(buffer_combined_filtered, engine='openpyxl') as writer:
+                                        combined_df_filtered.to_excel(writer, index=False, sheet_name='Data Batch Gabungan')
+                                    buffer_combined_filtered.seek(0)
+
+                                    st.download_button(
+                                        label="📥 Download Data Gabungan (Excel)",
+                                        data=buffer_combined_filtered,
+                                        file_name=f"{final_combined_filename}.xlsx",
+                                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                        key=f"excel_combined_filter_{final_combined_filename}"
+                                    )
+                                else:
+                                    st.warning("Tidak ada data untuk kombinasi batch yang dipilih.")
+                                st.markdown("---")
+                                # --- AKHIR LOGIKA TABEL GABUNGAN ---
+
+                            elif num_selected > 0: # (JIKA 1 ATAU 2 BATCH DIPILIH - LOGIKA ASLI)
+                                for selected_batch_item in selected_batch_numbers_filter_val:
+                                    # Gunakan fungsi create_filtered_table_by_batch yang sudah ada
+                                    single_filtered_df = create_filtered_table_by_batch(st.session_state.result_df, selected_batch_item)
+                                    safe_filename_single = re.sub(r'[^\w\s-]', '', str(selected_batch_item)).strip().replace(' ', '_').replace('/', '_')
+
+                                    if not single_filtered_df.empty:
+                                        st.subheader(f"📊 Data Batch - {selected_batch_item}")
+                                        st.dataframe(single_filtered_df)
+
+                                        csv_single_filtered = single_filtered_df.to_csv(index=False)
+                                        st.download_button(
+                                            label=f"📥 Download Batch {selected_batch_item} (CSV)",
+                                            data=csv_single_filtered,
+                                            file_name=f"batch_{safe_filename_single}.csv",
+                                            mime="text/csv",
+                                            key=f"csv_batch_filter_{safe_filename_single}" # Modifikasi key agar unik
+                                        )
+
+                                        buffer_single_filtered = io.BytesIO()
+                                        with pd.ExcelWriter(buffer_single_filtered, engine='openpyxl') as writer:
+                                            single_filtered_df.to_excel(writer, index=False, sheet_name='Batch Data')
+                                        buffer_single_filtered.seek(0)
+
+                                        st.download_button(
+                                            label=f"📥 Download Batch {selected_batch_item} (Excel)",
+                                            data=buffer_single_filtered,
+                                            file_name=f"batch_{safe_filename_single}.xlsx",
+                                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                            key=f"excel_batch_filter_{safe_filename_single}" # Modifikasi key agar unik
+                                        )
+                                    else:
+                                        st.warning(f"Tidak ada data untuk batch {selected_batch_item}")
+                                    st.markdown("---")
                 with tab2:
                     st.subheader("🔍 Filter Data Berdasarkan Nama Bahan")
-                    
-                    unique_bahan_names = st.session_state.unique_bahan_names
-                    
-                    col1, col2 = st.columns([1, 4])
-                    with col1:
-                        if st.button("Pilih Semua Bahan"):
-                            st.session_state.selected_bahan_names = unique_bahan_names
-                    
-                    if 'selected_bahan_names' not in st.session_state:
-                        st.session_state.selected_bahan_names = []
-                    
-                    with col2:
-                        selected_bahan_names = st.multiselect(
-                            "Pilih Nama Bahan:",
-                            unique_bahan_names,
-                            default=st.session_state.selected_bahan_names,
-                            key="bahan_multiselect"
-                        )
-                        st.session_state.selected_bahan_names = selected_bahan_names
-                    
-                    if selected_bahan_names:
-                        for selected_name in selected_bahan_names:
-                            filtered_df = create_filtered_table_by_name(st.session_state.result_df, selected_name)
-                            safe_filename = re.sub(r'[^\w\s-]', '', selected_name).strip().replace(' ', '_')
-                            
-                            if not filtered_df.empty:
-                                st.subheader(f"📊 Tabel Terfilter - {selected_name}")
-                                st.dataframe(filtered_df)
-                                
-                                csv_filtered = filtered_df.to_csv(index=False)
-                                st.download_button(
-                                    label=f"📥 Download Tabel {selected_name} (CSV)",
-                                    data=csv_filtered,
-                                    file_name=f"filtered_{safe_filename}.csv",
-                                    mime="text/csv",
-                                    key=f"csv_{safe_filename}"
-                                )
-                                
-                                buffer_filtered = io.BytesIO()
-                                with pd.ExcelWriter(buffer_filtered, engine='openpyxl') as writer:
-                                    filtered_df.to_excel(writer, index=False, sheet_name='Filtered Data')
-                                buffer_filtered.seek(0)
-                                
-                                st.download_button(
-                                    label=f"📥 Download Tabel {selected_name} (Excel)",
-                                    data=buffer_filtered,
-                                    file_name=f"filtered_{safe_filename}.xlsx",
-                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                    key=f"excel_{safe_filename}"
-                                )
-                            else:
-                                st.warning(f"Tidak ada data untuk {selected_name}")
-                            
-                            st.markdown("---")
+                    if 'result_df' not in st.session_state or st.session_state.result_df.empty:
+                        st.warning("Belum ada data yang diproses atau hasil proses kosong.")
+                    elif not st.session_state.get('unique_bahan_names'):
+                         st.info("Tidak ada nama bahan unik yang tersedia untuk difilter.")
+                    else:
+                        unique_bahan_names_for_filter = st.session_state.unique_bahan_names
+
+                        col1_filter_bahan, col2_filter_bahan = st.columns([1, 4])
+                        with col1_filter_bahan:
+                            if st.button("Pilih Semua Bahan", key="pilih_semua_bahan_filter_btn"):
+                                st.session_state.selected_bahan_names_filter = unique_bahan_names_for_filter
+                        
+                        current_selected_bahan_filter = st.session_state.get('selected_bahan_names_filter', [])
+
+                        with col2_filter_bahan:
+                            selected_bahan_names_filter_val = st.multiselect(
+                                "Pilih Nama Bahan:",
+                                unique_bahan_names_for_filter,
+                                default=current_selected_bahan_filter,
+                                key="bahan_multiselect_filter_key"
+                            )
+                            st.session_state.selected_bahan_names_filter = selected_bahan_names_filter_val
+
+                        if selected_bahan_names_filter_val:
+                            for selected_name_item in selected_bahan_names_filter_val:
+                                # Gunakan fungsi create_filtered_table_by_name yang sudah ada
+                                name_filtered_df = create_filtered_table_by_name(st.session_state.result_df, selected_name_item)
+                                safe_filename_name = re.sub(r'[^\w\s-]', '', selected_name_item).strip().replace(' ', '_')
+
+                                if not name_filtered_df.empty:
+                                    st.subheader(f"📊 Tabel Terfilter - {selected_name_item}")
+                                    st.dataframe(name_filtered_df)
+
+                                    csv_name_filtered = name_filtered_df.to_csv(index=False)
+                                    st.download_button(
+                                        label=f"📥 Download Tabel {selected_name_item} (CSV)",
+                                        data=csv_name_filtered,
+                                        file_name=f"filtered_name_{safe_filename_name}.csv",
+                                        mime="text/csv",
+                                        key=f"csv_name_filter_{safe_filename_name}" # Modifikasi key
+                                    )
+
+                                    buffer_name_filtered = io.BytesIO()
+                                    with pd.ExcelWriter(buffer_name_filtered, engine='openpyxl') as writer:
+                                        name_filtered_df.to_excel(writer, index=False, sheet_name='Filtered Data')
+                                    buffer_name_filtered.seek(0)
+
+                                    st.download_button(
+                                        label=f"📥 Download Tabel {selected_name_item} (Excel)",
+                                        data=buffer_name_filtered,
+                                        file_name=f"filtered_name_{safe_filename_name}.xlsx",
+                                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                        key=f"excel_name_filter_{safe_filename_name}" # Modifikasi key
+                                    )
+                                else:
+                                    st.warning(f"Tidak ada data untuk {selected_name_item}")
+                                st.markdown("---")
 
         except Exception as e:
-            st.error(f"Terjadi kesalahan saat ekstraksi data: {e}")
+            st.error(f"Terjadi kesalahan: {e}")
+            import traceback
+            st.error(traceback.format_exc())
 
 
 if __name__ == "__main__":
+    # Pastikan semua fungsi helper (seperti get_formula_name_from_excel jika masih ada di tempat lain, dll.)
+    # sudah didefinisikan atau diimpor sebelum memanggil tampilkan_bahan()
+    st.set_page_config(layout="wide") # Contoh konfigurasi halaman
     tampilkan_bahan()
