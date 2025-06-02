@@ -9,7 +9,7 @@ def process_multiple_excel_files():
     Upload multiple Excel files, extract columns A, F, G from row 3 onwards, and combine with transpose
     """
     st.title("CQA EKSTRAK")
-    st.write("Upload File yang banyak 🤑 (DBM)")
+    st.write("Upload File yang banyak 🤑")
     
     # File uploader for multiple files
     uploaded_files = st.file_uploader(
@@ -215,7 +215,7 @@ def process_files(uploaded_files):
             
             output_buffer.seek(0)
             
-            filename = f"CQA_EKSTRAK{timestamp}.xlsx"
+            filename = f"processed_AFG_columns_{timestamp}.xlsx"
             
             # Download button
             st.download_button(
