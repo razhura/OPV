@@ -16,25 +16,25 @@ def process_multiple_excel_files():
         "Pilih Beberapa File Excel Yang Akan Kamu Ekstrak", 
         type=['xlsx', 'xls'],
         accept_multiple_files=True,
-        help="Anda dapat memilih beberapa file Excel sekaligus"
+        help="You can select multiple Excel files at once"
     )
     
     if uploaded_files:
-        st.write(f"📁 {len(uploaded_files)} file terupload")
+        st.write(f"📁 {len(uploaded_files)} files uploaded")
         
         # Show uploaded file names
-        with st.expander("Lihat file yang diupload"):
+        with st.expander("View uploaded files"):
             for i, file in enumerate(uploaded_files, 1):
                 st.write(f"{i}. {file.name}")
         
-        st.info("📋 Akan mengekstrak kolom A, F, G mulai dari baris 3 (header adalah merged cells di baris 1-2)")
+        st.info("📋 Will extract columns A, F, G starting from row 3 (headers are merged cells in rows 1-2)")
         
         # Process button
-        if st.button("🔄 Proses File", type="primary"):
+        if st.button("🔄 Process Files", type="primary"):
             process_files(uploaded_files)
                     
     else:
-        st.info("👆 Silakan upload file Excel untuk memulai")
+        st.info("👆 Please upload Excel files to get started")
 
 def read_excel_with_merged_headers(file, target_columns=[0, 5, 6]):  # A=0, F=5, G=6
     """
@@ -75,7 +75,7 @@ def read_excel_with_merged_headers(file, target_columns=[0, 5, 6]):  # A=0, F=5,
         return df_selected, headers
         
     except Exception as e:
-        st.error(f"Error membaca file: {str(e)}")
+        st.error(f"Error reading file: {str(e)}")
         return None, None
 
 def process_files(uploaded_files):
@@ -94,7 +94,7 @@ def process_files(uploaded_files):
             # Update progress
             progress = (i + 1) / len(uploaded_files)
             progress_bar.progress(progress)
-            status_text.text(f"Memproses: {uploaded_file.name}")
+            status_text.text(f"Processing: {uploaded_file.name}")
             
             # Read Excel file with merged headers
             df_data, headers = read_excel_with_merged_headers(uploaded_file)
@@ -102,7 +102,7 @@ def process_files(uploaded_files):
             if df_data is None or df_data.empty:
                 error_files.append({
                     'file': uploaded_file.name,
-                    'error': 'Tidak ada data ditemukan atau file kosong'
+                    'error': 'No data found or empty file'
                 })
                 continue
                         
@@ -117,7 +117,7 @@ def process_files(uploaded_files):
                 'file': uploaded_file.name,
                 'error': str(e)
             })
-            st.error(f"Error memproses {uploaded_file.name}: {str(e)}")
+            st.error(f"Error processing {uploaded_file.name}: {str(e)}")
     
     # Clear progress indicators
     progress_bar.empty()
@@ -125,24 +125,24 @@ def process_files(uploaded_files):
     
     if all_data:
         # Display processing results
-        st.success(f"✅ Berhasil memproses {len(all_data)} file")
+        st.success(f"✅ Successfully processed {len(all_data)} files")
         
         # Show preview of each file's data
-        with st.expander("Pratinjau data dari setiap file"):
+        with st.expander("Preview data from each file"):
             for file_data in all_data:
                 st.write(f"**{file_data['filename']}**")
-                st.write(f"Header: {file_data['headers']}")
-                st.write(f"Bentuk: {file_data['data'].shape}")
+                st.write(f"Headers: {file_data['headers']}")
+                st.write(f"Shape: {file_data['data'].shape}")
                 st.dataframe(file_data['data'].head())
                 st.write("---")
         
         # Combine all data
         combined_df = pd.concat([file_data['data'] for file_data in all_data], ignore_index=True)
         
-        st.write(f"📊 Bentuk data gabungan: {combined_df.shape[0]} baris × {combined_df.shape[1]} kolom")
+        st.write(f"📊 Combined data shape: {combined_df.shape[0]} rows × {combined_df.shape[1]} columns")
         
         # Show combined data preview
-        with st.expander("Pratinjau data gabungan"):
+        with st.expander("Preview combined data"):
             st.dataframe(combined_df.head(20))
         
         # Auto transpose the combined data
@@ -151,88 +151,58 @@ def process_files(uploaded_files):
         # Create transposed version
         transposed_df = combined_df.T
         transposed_df.reset_index(inplace=True)
-        
-        # Remove the looped column naming and use original headers
-        transposed_df.columns = ['Kolom'] + [f'Data_{i}' for i in range(1, len(transposed_df.columns))]
+        transposed_df.columns = [f'Baris_{i}' for i in range(len(transposed_df.columns))]
+        transposed_df.rename(columns={'Baris_0': 'Kolom_Asli'}, inplace=True)
         
         # Show final result
         st.subheader("📋 Hasil Akhir")
         st.write(f"Bentuk data transpose: {transposed_df.shape[0]} baris × {transposed_df.shape[1]} kolom")
         
-        with st.expander("Pratinjau data yang sudah di-transpose"):
-            # Apply styling to make the first column bold and fit to column
-            styled_df = transposed_df.style.set_properties(
-                subset=['Kolom'], 
-                **{'font-weight': 'bold', 'width': 'fit-content'}
-            )
-            st.dataframe(styled_df, use_container_width=True)
+        with st.expander("Preview data yang sudah di-transpose"):
+            st.dataframe(transposed_df.head(20))
         
         # Download section
-        st.subheader("📥 Unduh Hasil")
+        st.subheader("📥 Download Results")
         
-        # Generate timestamp for filenames
+        # Create Excel file in memory
+        output_buffer = io.BytesIO()
+        
+        # Option for sheet organization
+        sheet_option = st.radio(
+            "Excel sheet organization:",
+            ["Single sheet (final result only)", "Multiple sheets (original + transposed)"]
+        )
+        
+        if sheet_option == "Single sheet (final result only)":
+            transposed_df.to_excel(output_buffer, index=False, sheet_name='Final_Data')
+        else:
+            with pd.ExcelWriter(output_buffer, engine='openpyxl') as writer:
+                # Original combined data
+                combined_df.to_excel(writer, sheet_name='Original_Combined', index=False)
+                # Final processed data
+                transposed_df.to_excel(writer, sheet_name='Final_Result', index=False)
+        
+        output_buffer.seek(0)
+        
+        # Generate filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"processed_AFG_columns_{timestamp}.xlsx"
         
-        # Create download buttons in columns
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.write("**Data Gabungan (Belum Transpose)**")
-            # Create Excel file for combined data
-            combined_buffer = io.BytesIO()
-            combined_df.to_excel(combined_buffer, index=False, sheet_name='Data_Gabungan')
-            combined_buffer.seek(0)
-            
-            combined_filename = f"data_gabungan_{timestamp}.xlsx"
-            st.download_button(
-                label="📥 Unduh Data Gabungan",
-                data=combined_buffer.getvalue(),
-                file_name=combined_filename,
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                help="Download data yang sudah digabung dari semua file tapi belum di-transpose"
-            )
-        
-        with col2:
-            st.write("**Data Hasil Transpose**")
-            # Option for sheet organization
-            sheet_option = st.radio(
-                "Organisasi sheet Excel:",
-                ["Sheet tunggal (hasil akhir saja)", "Multiple sheet (asli + transpose)"],
-                key="sheet_option"
-            )
-            
-            # Create Excel file in memory
-            output_buffer = io.BytesIO()
-            
-            if sheet_option == "Sheet tunggal (hasil akhir saja)":
-                transposed_df.to_excel(output_buffer, index=False, sheet_name='Data_Akhir')
-            else:
-                with pd.ExcelWriter(output_buffer, engine='openpyxl') as writer:
-                    # Original combined data
-                    combined_df.to_excel(writer, sheet_name='Data_Asli_Gabungan', index=False)
-                    # Final processed data
-                    transposed_df.to_excel(writer, sheet_name='Hasil_Akhir', index=False)
-            
-            output_buffer.seek(0)
-            
-            filename = f"processed_AFG_columns_{timestamp}.xlsx"
-            
-            # Download button
-            st.download_button(
-                label="📥 Unduh Data Transpose",
-                data=output_buffer.getvalue(),
-                file_name=filename,
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                type="primary",
-                help="Download data yang sudah di-transpose"
-            )
+        # Download button
+        st.download_button(
+            label="📥 Download Processed Excel File",
+            data=output_buffer.getvalue(),
+            file_name=filename,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            type="primary"
+        )
         
     else:
-        st.error("❌ Tidak ada file yang berhasil diproses")
+        st.error("❌ No files were successfully processed")
     
     # Show error summary if any
     if error_files:
-        st.subheader("⚠️ Error Pemrosesan")
+        st.subheader("⚠️ Processing Errors")
         error_df = pd.DataFrame(error_files)
         st.dataframe(error_df)
 
