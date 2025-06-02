@@ -46,19 +46,56 @@ def extract_headers_from_rows_10_and_11(excel_file):
     return headers
 
 
+def get_formula_name_from_excel(excel_file):
+    """
+    Ekstrak nama formula dari file Excel.
+    Mencari di sel-sel awal untuk menemukan nama formula/produk.
+    """
+    try:
+        wb = load_workbook(excel_file, data_only=True)
+        ws = wb.active
+        
+        # Cari nama formula di beberapa kemungkinan lokasi
+        possible_locations = [
+            (1, 1), (1, 2), (1, 3), (1, 4),  # Baris 1
+            (2, 1), (2, 2), (2, 3), (2, 4),  # Baris 2
+            (3, 1), (3, 2), (3, 3), (3, 4),  # Baris 3
+        ]
+        
+        for row, col in possible_locations:
+            cell_value = ws.cell(row=row, column=col).value
+            if cell_value and isinstance(cell_value, str):
+                cell_value = str(cell_value).strip()
+                # Cek apakah ini seperti nama formula (mengandung kata kunci tertentu)
+                if any(keyword in cell_value.lower() for keyword in ['formula', 'produk', 'batch', 'nama']):
+                    # Ambil bagian setelah tanda ":" jika ada
+                    if ':' in cell_value:
+                        return cell_value.split(':', 1)[1].strip()
+                    return cell_value
+                # Atau jika sel berisi teks yang cukup panjang dan tidak berupa angka
+                elif len(cell_value) > 5 and not cell_value.replace('.', '').replace(',', '').isdigit():
+                    return cell_value
+        
+        # Jika tidak ditemukan, kembalikan default
+        return "Formula Tidak Diketahui"
+        
+    except Exception as e:
+        print(f"Error extracting formula name: {e}")
+        return "Formula Tidak Diketahui"
+
+
 def normalize_columns(df):
     mapping = {
         'Nomor Batch': 'Nomor Batch',
         'No. Order Produksi': 'No. Order Produksi',
         'Jalur': 'Jalur',
         'Kode Bahan': 'Kode Bahan',
-        'Nama Bahan': 'Nama Bahan',
+        'Nama Bahan Formula': 'Nama Bahan Formula', # Changed from 'Nama Bahan' to 'Nama Bahan Formula'
         'Kuantiti > Terpakai': 'Kuantiti > Terpakai',
         'Kuantiti > Rusak': 'Kuantiti > Rusak',
         'No Lot Supplier': 'No Lot Supplier',
         'Label QC': 'Label QC'
     }
-
 
     from difflib import get_close_matches
 
@@ -72,14 +109,16 @@ def normalize_columns(df):
     return df
 
 
-
-def transform_batch_data(df):
+def transform_batch_data(df, formula_name="Formula Tidak Diketahui"):
+    """
+    Transform batch data dan tambahkan nama formula sebagai kolom pertama
+    """
     selected_cols = [
         'Nomor Batch',
         'No. Order Produksi',
         'Jalur',
         'Kode Bahan',
-        'Nama Bahan',
+        'Nama Bahan Formula', # Changed from 'Nama Bahan' to 'Nama Bahan Formula'
         'Kuantiti > Terpakai',
         'Kuantiti > Rusak',
         'No Lot Supplier',
@@ -110,12 +149,13 @@ def transform_batch_data(df):
             order_produksi = group.iloc[0]['No. Order Produksi']
             jalur = group.iloc[0]['Jalur']
 
-            row_data = [batch, order_produksi, jalur]
+            # Mulai dengan nama formula, batch, order produksi, dan jalur
+            row_data = [formula_name, batch, order_produksi, jalur]
 
             for _, item in group.iterrows():
                 row_data.extend([
                     item['Kode Bahan'],
-                    item['Nama Bahan'],
+                    item['Nama Bahan Formula'], # Changed from 'Nama Bahan' to 'Nama Bahan Formula'
                     item['Kuantiti > Terpakai'],
                     item['Kuantiti > Rusak'],
                     item['No Lot Supplier'],
@@ -125,15 +165,17 @@ def transform_batch_data(df):
             max_items = max(max_items, len(group))
             transformed_rows.append(row_data)
 
-    full_row_len = 3 + max_items * 6
+    # Panjang baris penuh: 1 (formula) + 3 (batch info) + max_items * 6 (data bahan)
+    full_row_len = 4 + max_items * 6
     for row in transformed_rows:
         row.extend([''] * (full_row_len - len(row)))
 
-    headers = ['Nomor Batch', 'No. Order Produksi', 'Jalur']
+    # Header dengan nama formula di awal
+    headers = ['Nama Formula', 'Nomor Batch', 'No. Order Produksi', 'Jalur']
     for i in range(1, max_items + 1):
         headers.extend([
             f"Kode Bahan {i}",
-            f"Nama Bahan {i}",
+            f"Nama Bahan Formula {i}", # Changed from 'Nama Bahan' to 'Nama Bahan Formula'
             f"Kuantiti > Terpakai {i}",
             f"Kuantiti > Rusak {i}",
             f"No Lot Supplier {i}",
@@ -147,7 +189,7 @@ def simplify_headers(df):
     # Hapus penomoran di akhir kolom seperti "Kode Bahan 1" → "Kode Bahan"
     new_cols = []
     for col in df.columns:
-        if col == "Nomor Batch":
+        if col in ["Nama Formula", "Nomor Batch"]:
             new_cols.append(col)
         else:
             # Hilangkan angka dan spasi di akhir, tapi simpan seluruh bagian awal
@@ -157,14 +199,38 @@ def simplify_headers(df):
     return df
 
 
+def get_unique_batch_numbers(df):
+    """
+    Mendapatkan daftar nomor batch unik dari dataframe
+    """
+    if 'Nomor Batch' in df.columns:
+        unique_batches = df['Nomor Batch'].dropna()
+        unique_batches = unique_batches[unique_batches != '']
+        return sorted(list(unique_batches.unique()))
+    return []
+
+
+def create_filtered_table_by_batch(df, selected_batch):
+    """
+    Filter dataframe berdasarkan nomor batch yang dipilih
+    """
+    if 'Nomor Batch' not in df.columns:
+        return pd.DataFrame()
+    
+    # Filter berdasarkan nomor batch
+    filtered_df = df[df['Nomor Batch'] == selected_batch].copy()
+    
+    return filtered_df
+
+
 def create_filtered_table_by_name(df, selected_name):
-    # Temukan semua kolom "Nama Bahan" di dataframe
-    nama_bahan_cols = [col for col in df.columns if col.startswith('Nama Bahan ')]
+    # Temukan semua kolom "Nama Bahan Formula" di dataframe
+    nama_bahan_cols = [col for col in df.columns if col.startswith('Nama Bahan Formula ')]
     
     # Dapatkan indeks yang sesuai dengan nama bahan yang dipilih
     filtered_indices = []
     for col in nama_bahan_cols:
-        # Dapatkan indeks dari nama kolom, misalnya "Nama Bahan 1" → 1
+        # Dapatkan indeks dari nama kolom, misalnya "Nama Bahan Formula 1" → 1
         index = int(col.split()[-1])
         
         # Periksa setiap baris untuk nilai yang cocok dengan nama bahan yang dipilih
@@ -176,18 +242,22 @@ def create_filtered_table_by_name(df, selected_name):
     # Gabungkan semua dataframe terfilter untuk setiap indeks yang ditemukan
     filtered_dfs = []
     for index in filtered_indices:
-        # Kolom yang akan dipertahankan
-        columns_to_keep = [
+        # Kolom yang akan dipertahankan (termasuk Nama Formula jika ada)
+        columns_to_keep = []
+        if 'Nama Formula' in df.columns:
+            columns_to_keep.append('Nama Formula')
+        
+        columns_to_keep.extend([
             'Nomor Batch', 
             'No. Order Produksi', 
             'Jalur', 
-            f'Nama Bahan {index}',
+            f'Nama Bahan Formula {index}', # Changed from 'Nama Bahan' to 'Nama Bahan Formula'
             f'Kode Bahan {index}',
             f'Kuantiti > Terpakai {index}',
             f'Kuantiti > Rusak {index}',
             f'No Lot Supplier {index}',
             f'Label QC {index}'
-        ]
+        ])
         
         # Filter kolom yang ada di dataframe
         available_columns = [col for col in columns_to_keep if col in df.columns]
@@ -196,12 +266,12 @@ def create_filtered_table_by_name(df, selected_name):
         temp_df = df[available_columns].copy()
         
         # Filter baris dimana nama bahan sesuai dengan yang dipilih
-        temp_df = temp_df[temp_df[f'Nama Bahan {index}'] == selected_name]
+        temp_df = temp_df[temp_df[f'Nama Bahan Formula {index}'] == selected_name]
         
         # Ganti nama kolom untuk menghilangkan nomor indeks
         new_column_names = {}
         for col in temp_df.columns:
-            if col not in ['Nomor Batch', 'No. Order Produksi', 'Jalur']:
+            if col not in ['Nama Formula', 'Nomor Batch', 'No. Order Produksi', 'Jalur']:
                 new_name = re.sub(r"\s\d+$", "", col)
                 new_column_names[col] = new_name
         
@@ -216,15 +286,18 @@ def create_filtered_table_by_name(df, selected_name):
     if filtered_dfs:
         return pd.concat(filtered_dfs, ignore_index=True)
     else:
-        # Jika tidak ada yang cocok, kembalikan dataframe kosong dengan kolom yang sesuai
-        return pd.DataFrame(columns=['Nomor Batch', 'No. Order Produksi', 'Jalur', 
-                                    'Nama Bahan', 'Kode Bahan', 'Kuantiti > Terpakai', 
-                                    'Kuantiti > Rusak', 'No Lot Supplier', 'Label QC'])
+        # Kolom default untuk dataframe kosong
+        default_columns = ['Nomor Batch', 'No. Order Produksi', 'Jalur', 
+                          'Nama Bahan Formula', 'Kode Bahan', 'Kuantiti > Terpakai', 
+                          'Kuantiti > Rusak', 'No Lot Supplier', 'Label QC']
+        if 'Nama Formula' in df.columns:
+            default_columns = ['Nama Formula'] + default_columns
+        return pd.DataFrame(columns=default_columns)
 
 
 def get_unique_bahan_names(df):
-    # Temukan semua kolom "Nama Bahan" di dataframe
-    nama_bahan_cols = [col for col in df.columns if col.startswith('Nama Bahan ')]
+    # Temukan semua kolom "Nama Bahan Formula" di dataframe
+    nama_bahan_cols = [col for col in df.columns if col.startswith('Nama Bahan Formula ')]
     
     # Kumpulkan semua nilai unik dari kolom-kolom tersebut
     unique_names = set()
@@ -240,8 +313,8 @@ def get_unique_bahan_names(df):
 
 def merge_same_materials(df):
     """
-    Memindahkan kelompok data dengan kode bahan yang sama ke baris baru
-    Jika dalam satu baris ada kode bahan yang sama di kelompok berbeda,
+    Memindahkan kelompok data dengan nama bahan formula yang sama ke baris baru
+    Jika dalam satu baris ada nama bahan formula yang sama di kelompok berbeda,
     kelompok kedua akan dipindah ke baris baru (tanpa nomor batch, no order, jalur)
     """
     import pandas as pd
@@ -249,12 +322,12 @@ def merge_same_materials(df):
     # Buat list untuk menyimpan semua baris hasil
     result_rows = []
     
-    # Dapatkan semua kolom kode bahan
-    kode_bahan_cols = [col for col in df.columns if col.startswith('Kode Bahan ')]
+    # Dapatkan semua kolom nama bahan formula
+    nama_bahan_cols = [col for col in df.columns if col.startswith('Nama Bahan Formula ')]
     
     # Dapatkan indeks dari nama kolom
     indices = []
-    for col in kode_bahan_cols:
+    for col in nama_bahan_cols:
         try:
             index = int(col.split()[-1])
             indices.append(index)
@@ -269,19 +342,19 @@ def merge_same_materials(df):
         materials_groups = []
         
         for idx in indices:
+            nama_bahan_col = f'Nama Bahan Formula {idx}'
             kode_col = f'Kode Bahan {idx}'
-            nama_col = f'Nama Bahan {idx}'
             
-            # Periksa apakah ada data kode bahan
-            if (kode_col in df.columns and 
-                pd.notna(df.loc[row_idx, kode_col]) and 
-                str(df.loc[row_idx, kode_col]).strip() != ''):
+            # Periksa apakah ada data nama bahan formula
+            if (nama_bahan_col in df.columns and 
+                pd.notna(df.loc[row_idx, nama_bahan_col]) and 
+                str(df.loc[row_idx, nama_bahan_col]).strip() != ''):
                 
                 # Kumpulkan semua data dalam kelompok ini
                 group_data = {
                     'original_index': idx,
-                    'kode': str(df.loc[row_idx, kode_col]).strip(),
-                    'nama': df.loc[row_idx, nama_col] if nama_col in df.columns else '',
+                    'nama_bahan_formula': str(df.loc[row_idx, nama_bahan_col]).strip(),
+                    'kode': df.loc[row_idx, kode_col] if kode_col in df.columns else '',
                     'terpakai': df.loc[row_idx, f'Kuantiti > Terpakai {idx}'] if f'Kuantiti > Terpakai {idx}' in df.columns else '',
                     'rusak': df.loc[row_idx, f'Kuantiti > Rusak {idx}'] if f'Kuantiti > Rusak {idx}' in df.columns else '',
                     'lot': df.loc[row_idx, f'No Lot Supplier {idx}'] if f'No Lot Supplier {idx}' in df.columns else '',
@@ -295,19 +368,19 @@ def merge_same_materials(df):
             result_rows.append(df.loc[row_idx].copy())
             continue
         
-        # Identifikasi duplikasi kode bahan (100% sama)
-        seen_codes = {}
+        # Identifikasi duplikasi nama bahan formula (100% sama)
+        seen_names = {}
         groups_to_keep = []  # Kelompok yang tetap di baris asli
         groups_to_move = []  # Kelompok yang akan dipindah ke baris baru
         
         for group in materials_groups:
-            kode = group['kode'].strip()  # Kode bahan exact match
-            if kode in seen_codes:
-                # Kode bahan sudah ada sebelumnya, tandai untuk dipindah
+            nama_bahan = group['nama_bahan_formula'].strip()  # Nama bahan formula exact match
+            if nama_bahan in seen_names:
+                # Nama bahan formula sudah ada sebelumnya, tandai untuk dipindah
                 groups_to_move.append(group)
             else:
-                # Kode bahan pertama kali muncul, tetap di baris asli
-                seen_codes[kode] = True
+                # Nama bahan formula pertama kali muncul, tetap di baris asli
+                seen_names[nama_bahan] = True
                 groups_to_keep.append(group)
         
         # Jika tidak ada duplikasi, semua tetap di baris asli
@@ -320,7 +393,7 @@ def merge_same_materials(df):
         
         # Kosongkan semua kolom bahan terlebih dahulu
         for idx in indices:
-            for col_type in ['Nama Bahan', 'Kode Bahan', 'Kuantiti > Terpakai', 'Kuantiti > Rusak', 'No Lot Supplier', 'Label QC']:
+            for col_type in ['Nama Bahan Formula', 'Kode Bahan', 'Kuantiti > Terpakai', 'Kuantiti > Rusak', 'No Lot Supplier', 'Label QC']:
                 col_name = f'{col_type} {idx}'
                 if col_name in current_row.index:
                     current_row[col_name] = ''
@@ -329,8 +402,8 @@ def merge_same_materials(df):
         for new_idx, group in enumerate(groups_to_keep, 1):
             if new_idx <= len(indices):
                 # Isi semua data kelompok
-                if f'Nama Bahan {new_idx}' in current_row.index:
-                    current_row[f'Nama Bahan {new_idx}'] = group['nama']
+                if f'Nama Bahan Formula {new_idx}' in current_row.index:
+                    current_row[f'Nama Bahan Formula {new_idx}'] = group['nama_bahan_formula']
                 if f'Kode Bahan {new_idx}' in current_row.index:
                     current_row[f'Kode Bahan {new_idx}'] = group['kode']
                 if f'Kuantiti > Terpakai {new_idx}' in current_row.index:
@@ -353,10 +426,10 @@ def merge_same_materials(df):
             for col in new_row.index:
                 new_row[col] = ''
             
-            # Cari posisi kelompok dengan kode bahan yang sama di groups_to_keep
+            # Cari posisi kelompok dengan nama bahan formula yang sama di groups_to_keep
             target_position = None
             for kept_group in groups_to_keep:
-                if kept_group['kode'].strip() == group['kode'].strip():
+                if kept_group['nama_bahan_formula'].strip() == group['nama_bahan_formula'].strip():
                     # Cari posisi kelompok ini di baris yang sudah diatur ulang
                     for pos, check_group in enumerate(groups_to_keep, 1):
                         if check_group == kept_group:
@@ -369,8 +442,8 @@ def merge_same_materials(df):
                 target_position = group['original_index']
             
             # Isi data kelompok yang dipindah di posisi yang sesuai
-            if f'Nama Bahan {target_position}' in new_row.index:
-                new_row[f'Nama Bahan {target_position}'] = group['nama']
+            if f'Nama Bahan Formula {target_position}' in new_row.index:
+                new_row[f'Nama Bahan Formula {target_position}'] = group['nama_bahan_formula']
             if f'Kode Bahan {target_position}' in new_row.index:
                 new_row[f'Kode Bahan {target_position}'] = group['kode']
             if f'Kuantiti > Terpakai {target_position}' in new_row.index:
@@ -391,7 +464,6 @@ def merge_same_materials(df):
     return result_df
 
 
-# Tambahkan fungsi ini ke dalam fungsi tampilkan_bahan()
 def tampilkan_bahan():
     st.title("Halaman CPP BAHAN")
     st.write("Ini adalah tampilan khusus CPP BAHAN.")
@@ -399,6 +471,10 @@ def tampilkan_bahan():
     uploaded_file = st.file_uploader("Upload file Excel", type=["xlsx"])
 
     if uploaded_file is not None:
+        # Ekstrak nama formula dari file Excel
+        formula_name = get_formula_name_from_excel(uploaded_file)
+        st.info(f"Nama Formula Terdeteksi: **{formula_name}**")
+        
         combined_headers = extract_headers_from_rows_10_and_11(uploaded_file)
         df_asli = pd.read_excel(uploaded_file, skiprows=2, header=None)
         df_asli.columns = combined_headers
@@ -411,13 +487,17 @@ def tampilkan_bahan():
             if st.button("🔍 Ekstrak Data Batch"):
                 with st.spinner("Memproses data..."):
                     df_asli = normalize_columns(df_asli)
-                    result_df = transform_batch_data(df_asli)
+                    # Pass formula name ke fungsi transform
+                    result_df = transform_batch_data(df_asli, formula_name)
 
                     st.session_state.result_df = result_df
                     st.session_state.processed = True
                     
                     unique_bahan_names = get_unique_bahan_names(result_df)
                     st.session_state.unique_bahan_names = unique_bahan_names
+                    
+                    unique_batch_numbers = get_unique_batch_numbers(result_df)
+                    st.session_state.unique_batch_numbers = unique_batch_numbers
 
                     st.subheader("🔢 Hasil Ekstraksi Data Batch")
                     st.dataframe(result_df)
@@ -454,9 +534,12 @@ def tampilkan_bahan():
                         merged_df = merge_same_materials(st.session_state.result_df)
                         st.session_state.result_df = merged_df
                         
-                        # Update unique bahan names
+                        # Update unique bahan names dan batch numbers
                         unique_bahan_names = get_unique_bahan_names(merged_df)
                         st.session_state.unique_bahan_names = unique_bahan_names
+                        
+                        unique_batch_numbers = get_unique_batch_numbers(merged_df)
+                        st.session_state.unique_batch_numbers = unique_batch_numbers
                         
                         st.subheader("✅ Data Setelah Pengelompokan Bahan")
                         st.dataframe(merged_df)
@@ -485,60 +568,122 @@ def tampilkan_bahan():
                             key="excel_merged"
                         )
 
-                st.subheader("🔍 Filter Data Berdasarkan Nama Bahan")
+                # Tab untuk filter berdasarkan nomor batch atau nama bahan
+                tab1, tab2 = st.tabs(["🔍 Filter Berdasarkan Nomor Batch", "🔍 Filter Berdasarkan Nama Bahan"])
                 
-                unique_bahan_names = st.session_state.unique_bahan_names
-                
-                col1, col2 = st.columns([1, 4])
-                with col1:
-                    if st.button("Pilih Semua"):
-                        st.session_state.selected_bahan_names = unique_bahan_names
-                
-                if 'selected_bahan_names' not in st.session_state:
-                    st.session_state.selected_bahan_names = []
-                
-                with col2:
-                    selected_bahan_names = st.multiselect(
-                        "Pilih Nama Bahan:",
-                        unique_bahan_names,
-                        default=st.session_state.selected_bahan_names
-                    )
-                    st.session_state.selected_bahan_names = selected_bahan_names
-                
-                if selected_bahan_names:
-                    for selected_name in selected_bahan_names:
-                        filtered_df = create_filtered_table_by_name(st.session_state.result_df, selected_name)
-                        safe_filename = re.sub(r'[^\w\s-]', '', selected_name).strip().replace(' ', '_')
-                        
-                        if not filtered_df.empty:
-                            st.subheader(f"📊 Tabel Terfilter - {selected_name}")
-                            st.dataframe(filtered_df)
+                with tab1:
+                    st.subheader("🔍 Filter Data Berdasarkan Nomor Batch")
+                    
+                    unique_batch_numbers = st.session_state.unique_batch_numbers
+                    
+                    col1, col2 = st.columns([1, 4])
+                    with col1:
+                        if st.button("Pilih Semua Batch"):
+                            st.session_state.selected_batch_numbers = unique_batch_numbers
+                    
+                    if 'selected_batch_numbers' not in st.session_state:
+                        st.session_state.selected_batch_numbers = []
+                    
+                    with col2:
+                        selected_batch_numbers = st.multiselect(
+                            "Pilih Nomor Batch:",
+                            unique_batch_numbers,
+                            default=st.session_state.selected_batch_numbers,
+                            key="batch_multiselect"
+                        )
+                        st.session_state.selected_batch_numbers = selected_batch_numbers
+                    
+                    if selected_batch_numbers:
+                        for selected_batch in selected_batch_numbers:
+                            filtered_df = create_filtered_table_by_batch(st.session_state.result_df, selected_batch)
+                            safe_filename = re.sub(r'[^\w\s-]', '', str(selected_batch)).strip().replace(' ', '_').replace('/', '_')
                             
-                            csv_filtered = filtered_df.to_csv(index=False)
-                            st.download_button(
-                                label=f"📥 Download Tabel {selected_name} (CSV)",
-                                data=csv_filtered,
-                                file_name=f"filtered_{safe_filename}.csv",
-                                mime="text/csv",
-                                key=f"csv_{safe_filename}"
-                            )
+                            if not filtered_df.empty:
+                                st.subheader(f"📊 Data Batch - {selected_batch}")
+                                st.dataframe(filtered_df)
+                                
+                                csv_filtered = filtered_df.to_csv(index=False)
+                                st.download_button(
+                                    label=f"📥 Download Batch {selected_batch} (CSV)",
+                                    data=csv_filtered,
+                                    file_name=f"batch_{safe_filename}.csv",
+                                    mime="text/csv",
+                                    key=f"csv_batch_{safe_filename}"
+                                )
+                                
+                                buffer_filtered = io.BytesIO()
+                                with pd.ExcelWriter(buffer_filtered, engine='openpyxl') as writer:
+                                    filtered_df.to_excel(writer, index=False, sheet_name='Batch Data')
+                                buffer_filtered.seek(0)
+                                
+                                st.download_button(
+                                    label=f"📥 Download Batch {selected_batch} (Excel)",
+                                    data=buffer_filtered,
+                                    file_name=f"batch_{safe_filename}.xlsx",
+                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                    key=f"excel_batch_{safe_filename}"
+                                )
+                            else:
+                                st.warning(f"Tidak ada data untuk batch {selected_batch}")
                             
-                            buffer_filtered = io.BytesIO()
-                            with pd.ExcelWriter(buffer_filtered, engine='openpyxl') as writer:
-                                filtered_df.to_excel(writer, index=False, sheet_name='Filtered Data')
-                            buffer_filtered.seek(0)
+                            st.markdown("---")
+
+                with tab2:
+                    st.subheader("🔍 Filter Data Berdasarkan Nama Bahan")
+                    
+                    unique_bahan_names = st.session_state.unique_bahan_names
+                    
+                    col1, col2 = st.columns([1, 4])
+                    with col1:
+                        if st.button("Pilih Semua Bahan"):
+                            st.session_state.selected_bahan_names = unique_bahan_names
+                    
+                    if 'selected_bahan_names' not in st.session_state:
+                        st.session_state.selected_bahan_names = []
+                    
+                    with col2:
+                        selected_bahan_names = st.multiselect(
+                            "Pilih Nama Bahan:",
+                            unique_bahan_names,
+                            default=st.session_state.selected_bahan_names,
+                            key="bahan_multiselect"
+                        )
+                        st.session_state.selected_bahan_names = selected_bahan_names
+                    
+                    if selected_bahan_names:
+                        for selected_name in selected_bahan_names:
+                            filtered_df = create_filtered_table_by_name(st.session_state.result_df, selected_name)
+                            safe_filename = re.sub(r'[^\w\s-]', '', selected_name).strip().replace(' ', '_')
                             
-                            st.download_button(
-                                label=f"📥 Download Tabel {selected_name} (Excel)",
-                                data=buffer_filtered,
-                                file_name=f"filtered_{safe_filename}.xlsx",
-                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                key=f"excel_{safe_filename}"
-                            )
-                        else:
-                            st.warning(f"Tidak ada data untuk {selected_name}")
-                        
-                        st.markdown("---")
+                            if not filtered_df.empty:
+                                st.subheader(f"📊 Tabel Terfilter - {selected_name}")
+                                st.dataframe(filtered_df)
+                                
+                                csv_filtered = filtered_df.to_csv(index=False)
+                                st.download_button(
+                                    label=f"📥 Download Tabel {selected_name} (CSV)",
+                                    data=csv_filtered,
+                                    file_name=f"filtered_{safe_filename}.csv",
+                                    mime="text/csv",
+                                    key=f"csv_{safe_filename}"
+                                )
+                                
+                                buffer_filtered = io.BytesIO()
+                                with pd.ExcelWriter(buffer_filtered, engine='openpyxl') as writer:
+                                    filtered_df.to_excel(writer, index=False, sheet_name='Filtered Data')
+                                buffer_filtered.seek(0)
+                                
+                                st.download_button(
+                                    label=f"📥 Download Tabel {selected_name} (Excel)",
+                                    data=buffer_filtered,
+                                    file_name=f"filtered_{safe_filename}.xlsx",
+                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                    key=f"excel_{safe_filename}"
+                                )
+                            else:
+                                st.warning(f"Tidak ada data untuk {selected_name}")
+                            
+                            st.markdown("---")
 
         except Exception as e:
             st.error(f"Terjadi kesalahan saat ekstraksi data: {e}")
