@@ -4,12 +4,57 @@ import io
 from datetime import datetime
 import openpyxl
 
+def process_data_with_stacking(combined_df):
+    """
+    Process data to stack duplicate column A values vertically while keeping F and G columns separate
+    """
+    # Get column names (assuming first column is A, second is F, third is G)
+    col_names = combined_df.columns.tolist()
+    col_a = col_names[0]
+    col_f = col_names[1] 
+    col_g = col_names[2]
+    
+    # Group by column A values
+    grouped_data = {}
+    
+    for idx, row in combined_df.iterrows():
+        key_a = str(row[col_a]).strip() if pd.notna(row[col_a]) else ""
+        
+        if key_a and key_a != "":
+            if key_a not in grouped_data:
+                grouped_data[key_a] = {
+                    'values_f': [],
+                    'values_g': []
+                }
+            
+            # Add F and G values if they exist
+            if pd.notna(row[col_f]):
+                grouped_data[key_a]['values_f'].append(str(row[col_f]))
+            if pd.notna(row[col_g]):
+                grouped_data[key_a]['values_g'].append(str(row[col_g]))
+    
+    # Create new dataframe with stacked data
+    processed_data = []
+    
+    for key_a, data in grouped_data.items():
+        # Stack F and G values vertically with separator
+        stacked_f = ' | '.join(data['values_f']) if data['values_f'] else ""
+        stacked_g = ' | '.join(data['values_g']) if data['values_g'] else ""
+        
+        processed_data.append({
+            col_a: key_a,
+            col_f: stacked_f,
+            col_g: stacked_g
+        })
+    
+    return pd.DataFrame(processed_data)
+
 def process_multiple_excel_files():
     """
     Upload multiple Excel files, extract columns A, F, G from row 3 onwards, and combine with transpose
     """
     st.title("CQA EKSTRAK")
-    st.write("Upload File yang banyak 🤑 (DBM)")
+    st.write("Upload File yang banyak 🤑")
     
     # File uploader for multiple files
     uploaded_files = st.file_uploader(
@@ -145,11 +190,22 @@ def process_files(uploaded_files):
         with st.expander("Pratinjau data gabungan"):
             st.dataframe(combined_df.head(20))
         
-        # Auto transpose the combined data
+        # Show processed data with stacking preview
+        st.subheader("🔄 Data Setelah Penggabungan Duplikasi")
+        processed_df = process_data_with_stacking(combined_df)
+        st.write(f"📊 Bentuk data setelah stacking: {processed_df.shape[0]} baris × {processed_df.shape[1]} kolom")
+        
+        with st.expander("Pratinjau data setelah penggabungan duplikasi"):
+            st.dataframe(processed_df)
+        
+        # Auto transpose the processed data
         st.subheader("🔄 Data Hasil Transpose")
         
+        # Process data with smart stacking for duplicate column A values
+        processed_df = process_data_with_stacking(combined_df)
+        
         # Create transposed version
-        transposed_df = combined_df.T
+        transposed_df = processed_df.T
         transposed_df.reset_index(inplace=True)
         
         # Remove the looped column naming and use original headers
@@ -215,7 +271,7 @@ def process_files(uploaded_files):
             
             output_buffer.seek(0)
             
-            filename = f"CQA_EKSTRAK{timestamp}.xlsx"
+            filename = f"processed_AFG_columns_{timestamp}.xlsx"
             
             # Download button
             st.download_button(
