@@ -54,7 +54,7 @@ def process_multiple_excel_files():
     Upload multiple Excel files, extract columns A, F, G from row 3 onwards, and combine with transpose
     """
     st.title("CQA EKSTRAK")
-    st.write("Upload File yang banyak 🤑")
+    st.write("Upload File yang banyak 🤑(DBM)")
     
     # File uploader for multiple files
     uploaded_files = st.file_uploader(
