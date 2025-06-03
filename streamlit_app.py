@@ -57,7 +57,7 @@ import streamlit.components.v1 as components
 # Easter egg: judul bisa diklik
 components.html("""
     <div style="text-align: center;">
-        <h2 id="judul" style="cursor: pointer; color: #444;">OPV KONIMEX V4.5.</h2>
+        <h2 id="judul" style="cursor: pointer; color: #444;">OPV KONIMEX V4.6</h2>
         <div id="gambar" style="display: none; margin-top: 15px;">
             <img src="https://postimg.cc/WdztpxT1" alt="Developer" style="max-width: 300px; border-radius: 10px;">
             <p><i>Ini developernya loh 👀</i></p>
