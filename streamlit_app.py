@@ -56,8 +56,8 @@ import streamlit.components.v1 as components
 
 # Ganti judul jadi HTML biar bisa diklik
 st.markdown("""
-<div id="judul-easter-egg" style="font-size:32px; font-weight:bold; text-align:center; cursor:pointer;">
-    🕵️ OPV KONIMEX V4.5
+<div id="judul-easter-egg" style="font-size:35px; font-weight:bold; text-align:left; cursor:pointer;">
+    OPV KONIMEX V4.5
 </div>
 <div id="gambar-easter-egg" style="display:none; text-align:center; margin-top:10px;">
     <img src="https://raw.githubusercontent.com/username/repo/main/bayu_dev.png" alt="Bayu Developer" style="max-width:300px; border-radius:10px;" />
