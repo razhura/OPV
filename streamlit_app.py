@@ -60,7 +60,7 @@ st.markdown("""
     OPV KONIMEX V4.5
 </div>
 <div id="gambar-easter-egg" style="display:none; text-align:center; margin-top:10px;">
-    <img src="https://raw.githubusercontent.com/username/repo/main/bayu_dev.png" alt="Bayu Developer" style="max-width:300px; border-radius:10px;" />
+    <img src="https://postimg.cc/WdztpxT1" alt="Developer" style="max-width:300px; border-radius:10px;" />
     <p><i>Ini developernya loh 👀</i></p>
 </div>
 
