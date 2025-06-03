@@ -54,32 +54,31 @@ if menu == "CQA EKSTRAK":
     
 import streamlit.components.v1 as components
 
-# Ganti judul jadi HTML biar bisa diklik
-st.markdown("""
-<div id="judul-easter-egg" style="font-size:35px; font-weight:bold; text-align:left; cursor:pointer;">
-    OPV KONIMEX V4.5
-</div>
-<div id="gambar-easter-egg" style="display:none; text-align:center; margin-top:10px;">
-    <img src="https://postimg.cc/WdztpxT1" alt="Developer" style="max-width:300px; border-radius:10px;" />
-    <p><i>Ini developernya loh 👀</i></p>
-</div>
+# Easter egg: judul bisa diklik
+components.html("""
+    <div style="text-align: center;">
+        <h2 id="judul" style="cursor: pointer; color: #444;">OPV KONIMEX V4.5</h2>
+        <div id="gambar" style="display: none; margin-top: 15px;">
+            <img src="https://postimg.cc/WdztpxT1" alt="Developer" style="max-width: 300px; border-radius: 10px;">
+            <p><i>Ini developernya loh 👀</i></p>
+        </div>
+    </div>
+    <script>
+        const judul = document.getElementById("judul");
+        const gambar = document.getElementById("gambar");
 
-<script>
-const judul = window.parent.document.querySelector('iframe').contentWindow.document.getElementById("judul-easter-egg");
-const gambar = window.parent.document.querySelector('iframe').contentWindow.document.getElementById("gambar-easter-egg");
-if (judul) {
-    judul.addEventListener("click", () => {
-        if (gambar.style.display === "none") {
-            gambar.style.display = "block";
-        } else {
-            gambar.style.display = "none";
-        }
-    });
-}
-</script>
-""", unsafe_allow_html=True)
+        judul.addEventListener("click", () => {
+            if (gambar.style.display === "none") {
+                gambar.style.display = "block";
+            } else {
+                gambar.style.display = "none";
+            }
+        });
+    </script>
+""", height=350)
 
 st.header("📊 Critical Quality Attribute (CQA)")
+
 
 
 # === PILIHAN MODE SEBELUM UPLOAD ===
