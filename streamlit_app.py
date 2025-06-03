@@ -52,9 +52,35 @@ if menu == "CQA EKSTRAK":
     process_multiple_excel_files() 
     st.stop()
     
-# Jika tidak pilih IPC atau CPP BAHAN, jalankan halaman CQA
-st.title("OPV KONIMEX V4.5")
+import streamlit.components.v1 as components
+
+# Ganti judul jadi HTML biar bisa diklik
+st.markdown("""
+<div id="judul-easter-egg" style="font-size:32px; font-weight:bold; text-align:center; cursor:pointer;">
+    🕵️ OPV KONIMEX V4.5
+</div>
+<div id="gambar-easter-egg" style="display:none; text-align:center; margin-top:10px;">
+    <img src="https://raw.githubusercontent.com/username/repo/main/bayu_dev.png" alt="Bayu Developer" style="max-width:300px; border-radius:10px;" />
+    <p><i>Ini developernya loh 👀</i></p>
+</div>
+
+<script>
+const judul = window.parent.document.querySelector('iframe').contentWindow.document.getElementById("judul-easter-egg");
+const gambar = window.parent.document.querySelector('iframe').contentWindow.document.getElementById("gambar-easter-egg");
+if (judul) {
+    judul.addEventListener("click", () => {
+        if (gambar.style.display === "none") {
+            gambar.style.display = "block";
+        } else {
+            gambar.style.display = "none";
+        }
+    });
+}
+</script>
+""", unsafe_allow_html=True)
+
 st.header("📊 Critical Quality Attribute (CQA)")
+
 
 # === PILIHAN MODE SEBELUM UPLOAD ===
 st.subheader("⚙️ Pengaturan Pemrosesan Data")
