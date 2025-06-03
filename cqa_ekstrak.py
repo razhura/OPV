@@ -3,12 +3,113 @@ import pandas as pd
 import io
 from datetime import datetime
 import openpyxl
+import re
+from collections import defaultdict
 
-def process_data_with_stacking(all_data):
+def handle_duplicate_columns(df, mode="gabung"):
+    """
+    Menangani kolom duplikat berdasarkan mode yang dipilih
+    
+    Args:
+        df: DataFrame input
+        mode: "gabung" untuk menggabungkan kolom dengan nama dasar sama,
+              "pisah" untuk menggabungkan hanya kolom dengan nama persis sama
+    """
+    if mode == "pisah":
+        new_columns = []
+        seen = defaultdict(list)
+        for idx, col in enumerate(df.columns):
+            seen[col].append(idx)
 
+        final_data = {}
+
+        # Proses setiap grup kolom
+        for col, indexes in seen.items():
+            if len(indexes) == 1:
+                # Kolom unik, langsung ambil
+                final_data[col] = df.iloc[:, indexes[0]]
+            else:
+                # Kolom duplikat (nama persis sama), gabungkan datanya
+                combined_series = df.iloc[:, indexes[0]].copy()
+                for i in indexes[1:]:
+                    combined_series = combined_series.combine_first(df.iloc[:, i])
+                final_data[col] = combined_series
+
+        # Kembalikan dengan urutan kolom asli (tanpa duplikat)
+        unique_columns = []
+        for col in df.columns:
+            if col not in unique_columns:
+                unique_columns.append(col)
+        
+        return pd.DataFrame({col: final_data[col] for col in unique_columns})
+    
+    elif mode == "gabung":
+        seen = defaultdict(list)
+        for idx, col in enumerate(df.columns):
+            seen[col].append(idx)
+
+        temp_data = {}
+        for col, indexes in seen.items():
+            if len(indexes) == 1:
+                temp_data[col] = df.iloc[:, indexes[0]]
+            else:
+                combined_series = df.iloc[:, indexes[0]].copy()
+                for i in indexes[1:]:
+                    combined_series = combined_series.combine_first(df.iloc[:, i])
+                temp_data[col] = combined_series
+
+        temp_df = pd.DataFrame(temp_data)
+
+        # Tahap 2: Gabungkan kolom yang nama dasarnya sama (hilangkan [teks], [nilai])
+        def clean_column_name(name):
+            return re.sub(r"\s*\[.*?\]\s*$", "", name).strip()
+
+        base_name_map = defaultdict(list)
+        original_order = {}  # Untuk menjaga urutan berdasarkan kemunculan pertama
+        
+        for idx, col in enumerate(temp_df.columns):
+            base_name = clean_column_name(col)
+            base_name_map[base_name].append(idx)
+            
+            # Simpan posisi kemunculan pertama dari base name ini
+            if base_name not in original_order:
+                original_order[base_name] = idx
+
+        final_data = {}
+
+        # Proses berdasarkan urutan kemunculan pertama
+        for base_name in sorted(base_name_map.keys(), key=lambda x: original_order[x]):
+            indexes = base_name_map[base_name]
+            
+            if len(indexes) == 1:
+                final_data[base_name] = temp_df.iloc[:, indexes[0]]
+            else:
+                # Gabungkan kolom dengan base name yang sama
+                combined_series = temp_df.iloc[:, indexes[0]].copy()
+                for i in indexes[1:]:
+                    combined_series = combined_series.combine_first(temp_df.iloc[:, i])
+                final_data[base_name] = combined_series
+
+        return pd.DataFrame(final_data)
+
+def clean_data_value(value):
+    """
+    Membersihkan nilai data dari tag [Nilai] atau [Teks]
+    """
+    return re.sub(r"\s*\[.*?\]\s*$", "", str(value)).strip()
+
+def process_data_with_stacking(all_data, column_mode="gabung"):
+    """
+    Memproses data dengan stacking dan menangani nilai data yang memiliki [Nilai]/[Teks]
+    
+    Args:
+        all_data: List data dari semua file
+        column_mode: Mode penanganan data ("gabung" atau "pisah")
+    """
     if not all_data:
         return pd.DataFrame()
     
+    # Tahap 1: Kumpulkan semua nilai unik dari kolom A
     all_a_values = []
     seen_values = set()
     
@@ -18,9 +119,18 @@ def process_data_with_stacking(all_data):
             col_a = df.columns[0]
             for val in df[col_a].dropna():
                 val_str = str(val).strip()
-                if val_str != '' and val_str not in seen_values:
-                    all_a_values.append(val_str)
-                    seen_values.add(val_str)
+                if val_str != '':
+                    if column_mode == "gabung":
+                        # Untuk mode gabung, bersihkan dari [Nilai]/[Teks]
+                        cleaned_val = clean_data_value(val_str)
+                        if cleaned_val not in seen_values:
+                            all_a_values.append(cleaned_val)
+                            seen_values.add(cleaned_val)
+                    else:
+                        # Untuk mode pisah, gunakan nilai asli
+                        if val_str not in seen_values:
+                            all_a_values.append(val_str)
+                            seen_values.add(val_str)
     
     if not all_a_values:
         return pd.DataFrame()
@@ -38,34 +148,59 @@ def process_data_with_stacking(all_data):
         
         if df.empty:
             continue
+        
+        # Terapkan mode penanganan kolom duplikat pada header
+        df_processed = handle_duplicate_columns(df, mode=column_mode)
             
-        col_names = df.columns.tolist()
+        col_names = df_processed.columns.tolist()
         col_a = col_names[0]
-        col_g = col_names[1]
-        col_h = col_names[2]
         
-        g_header = col_g
-        h_header = col_h
+        # Ambil kolom kedua dan ketiga (atau yang tersedia) - ini adalah G dan H
+        col_g = col_names[1] if len(col_names) > 1 else col_names[0]
+        col_h = col_names[2] if len(col_names) > 2 else (col_names[1] if len(col_names) > 1 else col_names[0])
         
-        transpose_data['Header'].extend([g_header, h_header])
+        # Untuk merged header, gunakan nama yang sudah di-merge
+        merged_header = "Nilai & Teks Hasil Uji"
         
+        # Karena G dan H sekarang memiliki header yang sama setelah merge,
+        # kita hanya perlu satu header untuk keduanya
+        transpose_data['Header'].append(merged_header)
+        
+        # Proses data berdasarkan mode
         for a_val in sorted_a_values:
-            filtered_data = df[df[col_a] == a_val]
+            if column_mode == "gabung":
+                # Untuk mode gabung, cari semua baris yang nama dasarnya sama
+                # (termasuk yang ada [Nilai] dan [Teks])
+                matching_rows = df_processed[
+                    df_processed[col_a].apply(lambda x: clean_data_value(str(x)) == a_val if pd.notna(x) else False)
+                ]
+            else:
+                # Untuk mode pisah, cari yang persis sama
+                matching_rows = df_processed[df_processed[col_a] == a_val]
             
-            g_values = filtered_data[col_g].dropna().tolist()
-            h_values = filtered_data[col_h].dropna().tolist()
+            # Ambil nilai dari kolom G dan H
+            g_values = matching_rows[col_g].dropna().tolist()
+            h_values = matching_rows[col_h].dropna().tolist()
             
-            g_combined = ', '.join([str(val) for val in g_values if str(val).strip() != '']) if g_values else ''
-            h_combined = ', '.join([str(val) for val in h_values if str(val).strip() != '']) if h_values else ''
+            # Gabungkan nilai G dan H (karena mereka saling melengkapi)
+            # Hilangkan yang kosong dan gabungkan dengan koma
+            all_values = []
+            all_values.extend([str(val) for val in g_values if str(val).strip() != ''])
+            all_values.extend([str(val) for val in h_values if str(val).strip() != ''])
             
-            transpose_data[a_val].extend([g_combined, h_combined])
+            combined_value = ', '.join(all_values) if all_values else ''
+            
+            transpose_data[a_val].append(combined_value)
     
     result_df = pd.DataFrame(transpose_data)
     
     return result_df
 
 def read_excel_with_merged_headers(file, target_columns=[0, 6, 7]):
-
+    """
+    Membaca file Excel dengan header yang mungkin di-merge
+    Tetap ambil kolom A, G, H secara terpisah dulu untuk memastikan data tidak hilang
+    """
     try:
         workbook = openpyxl.load_workbook(file, data_only=True)
         sheet = workbook.active
@@ -77,7 +212,12 @@ def read_excel_with_merged_headers(file, target_columns=[0, 6, 7]):
                 header_value = sheet.cell(row=2, column=col_idx+1).value
             
             if header_value is None:
-                header_value = f"Column_{chr(65+col_idx)}"
+                if col_idx == 0:
+                    header_value = f"Column_A"
+                elif col_idx == 6:
+                    header_value = "Nilai & Teks Hasil Uji"  # Header untuk kolom G (merged)
+                else:
+                    header_value = "Nilai & Teks Hasil Uji"  # Header untuk kolom H (merged)
             
             headers.append(str(header_value).strip())
         
@@ -94,8 +234,10 @@ def read_excel_with_merged_headers(file, target_columns=[0, 6, 7]):
         st.error(f"Error membaca file: {str(e)}")
         return None, None
 
-def process_files(files_to_process_ordered): 
-
+def process_files(files_to_process_ordered, column_mode="gabung"):
+    """
+    Memproses file-file yang sudah diurutkan
+    """
     all_data = []
     error_files = []
     
@@ -137,24 +279,36 @@ def process_files(files_to_process_ordered):
     if all_data:
         st.success(f"✅ Berhasil memproses {len(all_data)} file")
         
+        # Tampilkan preview dengan mode yang dipilih
         with st.expander("Pratinjau data dari setiap file (sesuai urutan yang diatur)"):
             for file_data in all_data:
                 st.write(f"**{file_data['filename']}**")
-                st.write(f"Header: {file_data['headers']}")
-                st.write(f"Bentuk: {file_data['data'].shape}")
-                st.dataframe(file_data['data'].head())
+                st.write(f"Header Asli: {file_data['headers']}")
+                
+                # Terapkan mode penanganan kolom
+                df_processed = handle_duplicate_columns(file_data['data'], mode=column_mode)
+                st.write(f"Header Setelah Mode '{column_mode}': {list(df_processed.columns)}")
+                st.write(f"Bentuk: {df_processed.shape}")
+                st.dataframe(df_processed.head())
                 st.write("---")
         
-        combined_df = pd.concat([file_data['data'] for file_data in all_data], ignore_index=True)
+        # Gabungkan data dengan mode yang dipilih
+        processed_data_list = []
+        for file_data in all_data:
+            df_processed = handle_duplicate_columns(file_data['data'], mode=column_mode)
+            processed_data_list.append(df_processed)
+        
+        combined_df = pd.concat(processed_data_list, ignore_index=True)
         
         st.write(f"📊 Bentuk data gabungan: {combined_df.shape[0]} baris × {combined_df.shape[1]} kolom")
+        st.write(f"🔧 Mode penanganan kolom: **{column_mode.upper()}**")
         
-        processed_df = process_data_with_stacking(all_data)
+        processed_df = process_data_with_stacking(all_data, column_mode)
         
         if not processed_df.empty:
             st.subheader("📋 Hasil Akhir (Transposed)")
             st.write(f"Bentuk data final: {processed_df.shape[0]} baris × {processed_df.shape[1]} kolom")
-            st.write("**Format:** Kolom A yang sama digabung jadi header, Data G & H dari setiap file terpisah")
+            st.write("**Format:** Kolom A yang sama digabung jadi header, Data G & H digabung menjadi 'Nilai & Teks Hasil Uji' dari setiap file")
             
             with st.expander("Pratinjau data hasil akhir"):
                 styled_df = processed_df.style.set_properties(
@@ -172,7 +326,7 @@ def process_files(files_to_process_ordered):
                 combined_buffer = io.BytesIO()
                 combined_df.to_excel(combined_buffer, index=False, sheet_name='Data_Gabungan')
                 combined_buffer.seek(0)
-                combined_filename = f"data_gabungan_{timestamp}.xlsx"
+                combined_filename = f"data_gabungan_{column_mode}_{timestamp}.xlsx"
                 st.download_button(
                     label="📥 Unduh Data Gabungan",
                     data=combined_buffer.getvalue(),
@@ -186,7 +340,7 @@ def process_files(files_to_process_ordered):
                 sheet_option = st.radio(
                     "Organisasi sheet Excel:",
                     ["Sheet tunggal (hasil akhir saja)", "Multiple sheet (asli + transpose)"],
-                    key="sheet_option_cqa" # Mengubah key agar unik
+                    key="sheet_option_cqa"
                 )
                 output_buffer = io.BytesIO()
                 if sheet_option == "Sheet tunggal (hasil akhir saja)":
@@ -196,7 +350,7 @@ def process_files(files_to_process_ordered):
                         combined_df.to_excel(writer, sheet_name='Data_Asli_Gabungan', index=False)
                         processed_df.to_excel(writer, sheet_name='Hasil_Transpose', index=False)
                 output_buffer.seek(0)
-                filename = f"transposed_AGH_columns_{timestamp}.xlsx"
+                filename = f"transposed_A_MergedGH_{column_mode}_{timestamp}.xlsx"
                 st.download_button(
                     label="📥 Unduh Data Transpose",
                     data=output_buffer.getvalue(),
@@ -224,6 +378,25 @@ def process_multiple_excel_files():
         st.session_state.files_for_cqa_processing = []
     if 'last_uploaded_cqa_file_names_sorted' not in st.session_state:
         st.session_state.last_uploaded_cqa_file_names_sorted = []
+
+    # Menu mode penanganan kolom
+    st.subheader("🔧 Pengaturan Penanganan Kolom")
+    column_mode = st.radio(
+        "Pilih mode penanganan kolom dengan nama serupa:",
+        ["gabung", "pisah"],
+        index=0,
+        help=(
+            "**Gabung**: Menggabungkan kolom dengan nama dasar sama (misal: 'Nama [Nilai]' dan 'Nama [Teks]' jadi 'Nama')\n\n"
+            "**Pisah**: Hanya menggabungkan kolom dengan nama persis sama, kolom dengan [Nilai] dan [Teks] tetap terpisah"
+        )
+    )
+    
+    if column_mode == "gabung":
+        st.info("🔗 Mode Gabung: Kolom seperti 'Nama [Nilai]' dan 'Nama [Teks]' akan digabung menjadi 'Nama'")
+    else:
+        st.info("📋 Mode Pisah: Kolom dengan [Nilai] dan [Teks] akan tetap terpisah")
+
+    st.markdown("---")
 
     newly_uploaded_files_from_widget = st.file_uploader(
         "Pilih Beberapa File Excel Yang Akan Kamu Ekstrak", 
@@ -262,12 +435,12 @@ def process_multiple_excel_files():
                     st.rerun()
         
         st.markdown("---")
-        st.info("📋 Akan mengekstrak kolom A, G, H mulai dari baris 3 (header adalah merged cells di baris 1-2)")
+        st.info("📋 Akan mengekstrak kolom A, G, H mulai dari baris 3 (header adalah merged cells di baris 1-2). Kolom G & H akan digabung menjadi 'Nilai & Teks Hasil Uji' karena datanya saling melengkapi")
         
         if st.button("🔄 Proses File", type="primary"):
             if st.session_state.files_for_cqa_processing:
-                # Panggil process_files dengan daftar file yang sudah diurutkan dari session_state
-                process_files(st.session_state.files_for_cqa_processing) 
+                # Panggil process_files dengan mode yang dipilih
+                process_files(st.session_state.files_for_cqa_processing, column_mode) 
             else:
                 st.warning("Tidak ada file untuk diproses. Silakan unggah file terlebih dahulu.")
                     
