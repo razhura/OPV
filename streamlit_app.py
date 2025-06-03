@@ -51,13 +51,13 @@ if menu == "CPP Produk Bahan Obat":
 if menu == "CQA EKSTRAK": 
     process_multiple_excel_files() 
     st.stop()
-    
-import streamlit.components.v1 as components
 
+
+import streamlit.components.v1 as components
 # Easter egg: judul bisa diklik
 components.html("""
     <div style="text-align: center;">
-        <h2 id="judul" style="cursor: pointer; color: #444;">OPV KONIMEX V4.5</h2>
+        <h2 id="judul" style="cursor: pointer; color: #444;">OPV KONIMEX V4.5.</h2>
         <div id="gambar" style="display: none; margin-top: 15px;">
             <img src="https://postimg.cc/WdztpxT1" alt="Developer" style="max-width: 300px; border-radius: 10px;">
             <p><i>Ini developernya loh 👀</i></p>
@@ -78,7 +78,6 @@ components.html("""
 """, height=350)
 
 st.header("📊 Critical Quality Attribute (CQA)")
-
 
 
 # === PILIHAN MODE SEBELUM UPLOAD ===
