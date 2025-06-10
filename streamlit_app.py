@@ -8,9 +8,6 @@ import matplotlib.pyplot as plt
 from openpyxl import load_workbook
 from datetime import datetime
 
-#Cek update
-st.caption(f"🔄 App last loaded: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-
 # --- SET PAGE CONFIG
 st.set_page_config(page_title="Excel CQA Parser", layout="wide")
 
@@ -438,3 +435,6 @@ if uploaded_file is not None:
         st.info("Silakan pilih fitur yang ingin digunakan di atas.")
 else:
     st.warning("⚠️ SILAKAN UPLOAD FILE TERLEBIH DAHULU.")
+
+#Cek update
+st.caption(f"🔄 App last loaded: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
