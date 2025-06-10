@@ -440,4 +440,4 @@ from datetime import datetime
 import pytz
 wib = pytz.timezone("Asia/Jakarta")
 now_wib = datetime.now(wib)
-st.caption(f"🔄 App last loaded: {now_wib.strftime('%Y-%m-%d %H:%M:%S')} WIB")
+st.caption(f"App last loaded: {now_wib.strftime('%Y-%m-%d %H:%M:%S')} WIB")
