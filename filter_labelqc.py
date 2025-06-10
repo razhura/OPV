@@ -85,9 +85,19 @@ def filter_labelqc():
             )
             grouped_all_df["Label QC"] = grouped_all_df["Label QC"].apply(lambda x: ", ".join(sorted([str(item) for item in x if str(item).strip()])))
             
-            # Tampilkan ringkasan untuk semua kode bahan
+            # # Tampilkan ringkasan untuk semua kode bahan
+            # st.subheader("🧾 Ringkasan Label QC untuk Semua Kode Bahan")
+            # st.dataframe(grouped_all_df)
+
+            # Pewarnaan dinamis untuk Label QC
+            def highlight_label_qc(val):
+                warna = hash(val) % 200  # hasil hash terbatas biar nggak terlalu terang/gelap
+                return f"background-color: hsl(210, 100%, {30 + warna % 50}%)"  # HSL biru dengan variasi lightness
+            
+            styled_df = grouped_all_df.style.applymap(highlight_label_qc, subset=["Label QC"])
+            
             st.subheader("🧾 Ringkasan Label QC untuk Semua Kode Bahan")
-            st.dataframe(grouped_all_df)
+            st.dataframe(styled_df, use_container_width=True)
             
             # Fitur Download Ringkasan untuk semua kode bahan
             if not grouped_all_df.empty:
