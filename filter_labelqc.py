@@ -85,27 +85,9 @@ def filter_labelqc():
             )
             grouped_all_df["Label QC"] = grouped_all_df["Label QC"].apply(lambda x: ", ".join(sorted([str(item) for item in x if str(item).strip()])))
             
-            # # Tampilkan ringkasan untuk semua kode bahan
-            # st.subheader("🧾 Ringkasan Label QC untuk Semua Kode Bahan")
-            # st.dataframe(grouped_all_df)
-
-            # Pewarnaan dinamis untuk Label QC
+            # Tampilkan ringkasan untuk semua kode bahan
             st.subheader("🧾 Ringkasan Label QC untuk Semua Kode Bahan")
-            
-            # Checkbox untuk mengaktifkan pewarnaan
-            warnai = st.checkbox("🎨 Warnai Label QC dengan gradasi biru")
-            
-            if warnai:
-                # Fungsi pewarnaan
-                def highlight_label_qc(val):
-                    warna = hash(val) % 200
-                    return f"background-color: hsl(210, 100%, {30 + warna % 50}%)"
-            
-                styled_df = grouped_all_df.style.applymap(highlight_label_qc, subset=["Label QC"])
-                st.dataframe(styled_df, use_container_width=True)
-            else:
-                st.dataframe(grouped_all_df, use_container_width=True)
-
+            st.dataframe(grouped_all_df)
             
             # Fitur Download Ringkasan untuk semua kode bahan
             if not grouped_all_df.empty:
@@ -113,6 +95,35 @@ def filter_labelqc():
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine="openpyxl") as writer:
                         df.to_excel(writer, index=False, sheet_name="Label QC")
+                    output.seek(0)
+                    return output
+
+                # Tambahan fungsi ekspor dengan warna
+                def to_excel_with_color(df, color_column="Label QC"):
+                    output = io.BytesIO()
+                    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                        df.to_excel(writer, index=False, sheet_name="Label QC")
+                        wb = writer.book
+                        ws = writer.sheets["Label QC"]
+                
+                        from openpyxl.styles import PatternFill
+                
+                        col_idx = df.columns.get_loc(color_column) + 1
+                
+                        label_colors = {}
+                        for row_idx, val in enumerate(df[color_column], start=2):
+                            label_str = str(val).strip()
+                            if label_str not in label_colors:
+                                hash_val = hash(label_str) % 200
+                                lightness = 30 + hash_val % 50
+                                blue_rgb = int((255 * lightness) / 100)
+                                hex_color = f"FF{blue_rgb:02X}{blue_rgb:02X}FF"
+                                label_colors[label_str] = PatternFill(
+                                    start_color=hex_color,
+                                    end_color=hex_color,
+                                    fill_type="solid"
+                                )
+                            ws.cell(row=row_idx, column=col_idx).fill = label_colors[label_str]
                     output.seek(0)
                     return output
                 
@@ -207,9 +218,15 @@ def filter_labelqc():
                     # Tampilkan hasil filter dengan urutan kolom yang sudah diatur
                     st.dataframe(label_filtered_df)
                     
-                    # Fitur Download hasil filter Label QC
-                    excel_label_data = to_excel(label_filtered_df)
+                    # Opsi untuk pewarnaan Label QC di file Excel
+                    warna_excel = st.checkbox("🎨 Warnai kolom Label QC di file Excel")
                     
+                    # Tentukan fungsi ekspor berdasarkan pilihan user
+                    if warna_excel:
+                        excel_label_data = to_excel_with_color(label_filtered_df)
+                    else:
+                        excel_label_data = to_excel(label_filtered_df)
+
                     # Buat nama file yang sesuai dengan label yang dipilih
                     if len(selected_labels) == 1:
                         filename = f"batch_dengan_label_qc_{selected_labels[0]}.xlsx"
