@@ -6,7 +6,6 @@ import io
 import base64
 import matplotlib.pyplot as plt
 from openpyxl import load_workbook
-from datetime import datetime
 
 # --- SET PAGE CONFIG
 st.set_page_config(page_title="Excel CQA Parser", layout="wide")
@@ -437,4 +436,8 @@ else:
     st.warning("⚠️ SILAKAN UPLOAD FILE TERLEBIH DAHULU.")
 
 #Cek update
-st.caption(f"🔄 App last loaded: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+from datetime import datetime
+import pytz
+wib = pytz.timezone("Asia/Jakarta")
+now_wib = datetime.now(wib)
+st.caption(f"🔄 App last loaded: {now_wib.strftime('%Y-%m-%d %H:%M:%S')} WIB")
