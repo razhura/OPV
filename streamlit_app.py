@@ -6,6 +6,10 @@ import io
 import base64
 import matplotlib.pyplot as plt
 from openpyxl import load_workbook
+from datetime import datetime
+
+#Cek update
+st.caption(f"🔄 App last loaded: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
 # --- SET PAGE CONFIG
 st.set_page_config(page_title="Excel CQA Parser", layout="wide")
