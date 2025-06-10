@@ -100,32 +100,51 @@ def filter_labelqc():
 
                 # Tambahan fungsi ekspor dengan warna
                 def to_excel_with_color(df, color_column="Label QC"):
+                    import re
+                    from openpyxl.styles import PatternFill
+                    import colorsys
                     output = io.BytesIO()
+                
                     with pd.ExcelWriter(output, engine="openpyxl") as writer:
                         df.to_excel(writer, index=False, sheet_name="Label QC")
                         wb = writer.book
                         ws = writer.sheets["Label QC"]
                 
-                        from openpyxl.styles import PatternFill
-                
                         col_idx = df.columns.get_loc(color_column) + 1
                 
-                        label_colors = {}
                         for row_idx, val in enumerate(df[color_column], start=2):
-                            label_str = str(val).strip()
-                            if label_str not in label_colors:
-                                hash_val = hash(label_str) % 200
-                                lightness = 30 + hash_val % 50
-                                blue_rgb = int((255 * lightness) / 100)
-                                hex_color = f"FF{blue_rgb:02X}{blue_rgb:02X}FF"
-                                label_colors[label_str] = PatternFill(
-                                    start_color=hex_color,
-                                    end_color=hex_color,
-                                    fill_type="solid"
-                                )
-                            ws.cell(row=row_idx, column=col_idx).fill = label_colors[label_str]
+                            label_str = str(val).strip().upper()
+                
+                            # Ambil angka & huruf dari label (contoh: "23A" → angka=23, huruf=A)
+                            match = re.match(r"(\d+)([A-Z]?)", label_str)
+                            if not match:
+                                continue
+                
+                            angka = int(match.group(1))
+                            huruf = match.group(2)
+                
+                            # === WARNA DASAR BERDASARKAN ANGKA ===
+                            # Hue antara 190 (biru kehijauan) sampai 270 (biru keungu-unguan)
+                            hue = 190 + (angka % 10) * 8  # hasilnya 190–270
+                            # Lightness berdasarkan huruf: A=75%, B=70%, ..., Z=45%
+                            lightness = 75 - (ord(huruf) - ord("A")) * 2.5 if huruf else 75
+                            lightness = max(45, min(75, lightness))  # dibatasi biar ga terlalu gelap/terang
+                            saturation = 0.9  # selalu 90% saturasi
+                
+                            # Konversi HSL ke RGB (0–255)
+                            r, g, b = colorsys.hls_to_rgb(hue / 360, lightness / 100, saturation)
+                            r = int(r * 255)
+                            g = int(g * 255)
+                            b = int(b * 255)
+                            hex_color = f"FF{r:02X}{g:02X}{b:02X}"
+                
+                            # Apply warna ke cell
+                            fill = PatternFill(start_color=hex_color, end_color=hex_color, fill_type="solid")
+                            ws.cell(row=row_idx, column=col_idx).fill = fill
+                
                     output.seek(0)
                     return output
+
                 
                 excel_all_grouped = to_excel(grouped_all_df)
                 st.download_button(
