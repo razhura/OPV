@@ -305,7 +305,7 @@ if uploaded_file is not None:
                 # Gabungkan data asli dengan statistik
                 df_combined = pd.concat([df_data, df_stats], ignore_index=True)
                 
-                st.subheader("📄 Data Hasil Pemilihan Kolom" + (" dan Pembersihan Data" if enable_drop_empty else ""))
+                st.subheader("📄 Data Hasil Pemilihan Kolom")
                 st.dataframe(df_combined)
                 
                 # Ekspor data gabungan
