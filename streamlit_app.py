@@ -313,7 +313,7 @@ if uploaded_file is not None:
                 st.markdown(export_link_filtered, unsafe_allow_html=True)
             else:
                 # Jika tidak ada kolom numerik, tampilkan data biasa
-                st.subheader("📄 Data Hasil Pemilihan Kolom" + (" dan Pembersihan Data" if enable_drop_empty else ""))
+                st.subheader("📄 Data Hasil Pemilihan Kolom")
                 st.dataframe(df_filtered)
                 
                 # Ekspor data biasa
