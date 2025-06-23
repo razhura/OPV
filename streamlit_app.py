@@ -21,7 +21,7 @@ from produk_obat import tampilkan_obat
 from cqa_ekstrak import process_multiple_excel_files
 
 # --- Navigasi
-menu = st.sidebar.radio("Navigasi", ["Critical Quality Attribute (CQA)", "In Process Control (IPC)", "CPP BAHAN", "CPP Produk Bahan Obat", "CQA EKSTRAK"])
+menu = st.sidebar.radio("Navigasi", ["Critical Quality Attribute (CQA)", "In Process Control (IPC)", "CPP BAHAN", "CQA EKSTRAK"]) #("CPP Produk Bahan Obat")
 
 # --- Logika Halaman
 if menu == "In Process Control (IPC)":
