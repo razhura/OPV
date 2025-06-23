@@ -44,9 +44,9 @@ if menu == "CPP BAHAN":
 
     st.stop()
 
-if menu == "CPP Produk Bahan Obat": 
-    tampilkan_obat() 
-    st.stop()
+# if menu == "CPP Produk Bahan Obat": 
+#     tampilkan_obat() 
+#     st.stop()
 
 if menu == "CQA EKSTRAK": 
     process_multiple_excel_files() 
