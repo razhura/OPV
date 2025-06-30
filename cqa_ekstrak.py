@@ -380,7 +380,7 @@ def process_multiple_excel_files():
         st.session_state.last_uploaded_cqa_file_names_sorted = []
 
     # Menu mode penanganan kolom
-    st.subheader("🔧 Pengaturan Penanganan Kolom")
+    st.subheader("Pengaturan Penanganan Kolom")
     column_mode = st.radio(
         "Pilih mode penanganan kolom dengan nama serupa:",
         ["gabung", "pisah"],
