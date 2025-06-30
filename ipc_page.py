@@ -383,10 +383,10 @@ def tampilkan_ipc():
     }
     st.info(f"Upload file Excel dengan format: {template_info[selected_option]}")
     template_links = {
-        "Kekerasan": "https://drive.google.com/file/d/xxx1/view?usp=sharing",
-        "Keseragaman Bobot": "https://drive.google.com/file/d/xxx2/view?usp=sharing",
-        "Tebal": "https://drive.google.com/file/d/xxx3/view?usp=sharing",
-        "Waktu Hancur dan Friability": "https://drive.google.com/file/d/xxx4/view?usp=sharing"
+        "Kekerasan": "https://drive.google.com/file/d/1fNFMrq6eiLsfRq-_9sM_lsAJcIvEdzfa/view?usp=drive_link",
+        "Keseragaman Bobot": "https://drive.google.com/file/d/1Qf13SEbM34IHvOcJ72jgnuU7xoYuydMJ/view?usp=drive_link",
+        "Tebal": "https://drive.google.com/file/d/1US8atXnBTN6zBLLBPhojGKEcf7o3_Vd8/view?usp=drive_link",
+        "Waktu Hancur dan Friability": "https://drive.google.com/file/d/1_L87a1pB8eK7JwaKHaQKqfhhXHTqtZHs/view?usp=drive_link"
     }
     
     st.markdown(
