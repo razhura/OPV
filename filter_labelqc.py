@@ -216,7 +216,7 @@ def filter_labelqc():
             # Hapus kolom bantu
             summary_by_kode = summary_by_kode.drop(columns=["Prefix Bulan"])
             # Urutkan ulang kolom biar rapi
-            summary_by_kode = summary_by_kode[["Kode Bahan", batch_col_primary, "Label QC", "Jumlah Batch"]]
+            summary_by_kode = summary_by_kode[["Kode Bahan", "Label QC", batch_col_primary, "Jumlah Batch"]]
             
             st.dataframe(summary_by_kode)
             
