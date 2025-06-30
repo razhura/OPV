@@ -222,9 +222,26 @@ def filter_labelqc():
             
             # Tombol download Excel
             def to_excel(df):
+                from openpyxl.styles import PatternFill
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine="openpyxl") as writer:
                     df.to_excel(writer, index=False, sheet_name="Kode Bahan")
+                    wb = writer.book
+                    ws = writer.sheets["Kode Bahan"]
+            
+                    gray1 = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
+                    gray2 = PatternFill(start_color="BBBBBB", end_color="BBBBBB", fill_type="solid")
+            
+                    jumlah_idx = df.columns.get_loc("Jumlah Batch") + 1
+                    fill = gray1
+            
+                    for row in range(2, len(df) + 2):
+                        val = ws.cell(row=row, column=jumlah_idx).value
+                        for col in range(1, len(df.columns) + 1):
+                            ws.cell(row=row, column=col).fill = fill
+                        if val:
+                            fill = gray2 if fill == gray1 else gray1
+            
                 output.seek(0)
                 return output
             
