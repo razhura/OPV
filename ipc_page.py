@@ -382,7 +382,17 @@ def tampilkan_ipc():
         "Waktu Hancur dan Friability": "Template Excel untuk pengujian waktu hancur dan friability (kolom 'Nomor Batch' & 'Sample Data')."
     }
     st.info(f"Upload file Excel dengan format: {template_info[selected_option]}")
+    template_links = {
+        "Kekerasan": "https://drive.google.com/file/d/xxx1/view?usp=sharing",
+        "Keseragaman Bobot": "https://drive.google.com/file/d/xxx2/view?usp=sharing",
+        "Tebal": "https://drive.google.com/file/d/xxx3/view?usp=sharing",
+        "Waktu Hancur dan Friability": "https://drive.google.com/file/d/xxx4/view?usp=sharing"
+    }
     
+    st.markdown(
+        f"[📥 Download Template {selected_option} di sini]({template_links[selected_option]})",
+        unsafe_allow_html=True
+    )
     uploader_key = f"uploader_{selected_option.replace(' ', '_').lower()}"
     uploaded_file = st.file_uploader("Upload file Excel sesuai template", type=["xlsx","ods"], key=uploader_key)
     
