@@ -191,8 +191,12 @@ def filter_labelqc():
             st.header("📋 Semua Kode Bahan dengan Batch dan Label QC.")
             
             batch_col_primary = batch_cols[0] if batch_cols else "Nomor Batch"
-            summary_by_kode = complete_df[["Kode Bahan", batch_col_primary, "Label QC"]].copy()
-            summary_by_kode = summary_by_kode.sort_values(by=["Kode Bahan", batch_col_primary, "Label QC"])
+            summary_by_kode = (
+                complete_df[["Kode Bahan", batch_col_primary, "Label QC"]]
+                .drop_duplicates()
+                .sort_values(by=["Kode Bahan", batch_col_primary, "Label QC"])
+            )
+
             
             st.dataframe(summary_by_kode)
             
