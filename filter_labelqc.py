@@ -211,7 +211,7 @@ def filter_labelqc():
                 group_rows = summary_by_kode.loc[group_indices]
                 jumlah = group_rows[batch_col_primary].nunique()
                 last_index = group_rows.index[-1]
-                summary_by_kode.at[last_index, "Jumlah Batch"] = jumlah
+                summary_by_kode.at[last_index, "Jumlah Batch"] = f"{jumlah} batch"
             
             # Hapus kolom bantu
             summary_by_kode = summary_by_kode.drop(columns=["Prefix Bulan"])
