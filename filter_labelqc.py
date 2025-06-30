@@ -229,7 +229,7 @@ def filter_labelqc():
                     wb = writer.book
                     ws = writer.sheets["Kode Bahan"]
             
-                    gray1 = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
+                    gray1 = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
                     gray2 = PatternFill(start_color="BBBBBB", end_color="BBBBBB", fill_type="solid")
             
                     jumlah_idx = df.columns.get_loc("Jumlah Batch") + 1
