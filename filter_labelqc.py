@@ -194,7 +194,7 @@ def filter_labelqc():
             summary_by_kode = (
                 complete_df[["Kode Bahan", batch_col_primary, "Label QC"]]
                 .drop_duplicates()
-                .sort_values(by=["Kode Bahan", batch_col_primary, "Label QC"])
+                .sort_values(by=["Kode Bahan", "Label QC", batch_col_primary])
             )
 
             # Tambahkan kolom prefix bulan dari nomor batch (misal: 'AUG24' dari 'AUG24A01')
