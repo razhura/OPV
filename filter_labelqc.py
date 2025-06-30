@@ -75,48 +75,48 @@ def filter_labelqc():
             # Buat dataframe untuk semua data
             complete_df = pd.DataFrame(all_data)
             
-            # # Buat ringkasan untuk semua kode bahan
-            # grouped_all_df = (
-            #     complete_df
-            #     .drop_duplicates()
-            #     .groupby("Kode Bahan")["Label QC"]
-            #     .unique()
-            #     .reset_index()
-            # )
-            # grouped_all_df["Label QC"] = grouped_all_df["Label QC"].apply(lambda x: ", ".join(sorted([str(item) for item in x if str(item).strip()])))
-            
-            # # Tampilkan ringkasan untuk semua kode bahan
-            # st.subheader("🧾 Ringkasan Label QC untuk Semua Kode Bahan")
-            # st.dataframe(grouped_all_df)
-########################################################################################         
-            # Ambil kolom batch utama
-            batch_col_primary = batch_cols[0] if batch_cols else "Nomor Batch"
-            
-            # Buat dataframe hasil per baris
-            summary_by_kode = complete_df[["Kode Bahan", batch_col_primary, "Label QC"]].copy()
-            
-            # Sort biar rapi
-            summary_by_kode = summary_by_kode.sort_values(by=["Kode Bahan", batch_col_primary, "Label QC"])
-            
-            # Tampilkan
-            st.subheader("🧾 Ringkasan Kode Bahan → Batch dan Label QC (Per Baris)")
-            st.dataframe(summary_by_kode)
-            
-            # Tombol download
-            def to_excel(df):
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                    df.to_excel(writer, index=False, sheet_name="Kode Bahan")
-                output.seek(0)
-                return output
-            
-            excel_summary = to_excel(summary_by_kode)
-            st.download_button(
-                label="📥 Download Ringkasan Per Baris (Excel)",
-                data=excel_summary,
-                file_name="ringkasan_per_baris_kode_bahan.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            # Buat ringkasan untuk semua kode bahan
+            grouped_all_df = (
+                complete_df
+                .drop_duplicates()
+                .groupby("Kode Bahan")["Label QC"]
+                .unique()
+                .reset_index()
             )
+            grouped_all_df["Label QC"] = grouped_all_df["Label QC"].apply(lambda x: ", ".join(sorted([str(item) for item in x if str(item).strip()])))
+            
+            # Tampilkan ringkasan untuk semua kode bahan
+            st.subheader("🧾 Ringkasan Label QC untuk Semua Kode Bahan")
+            st.dataframe(grouped_all_df)
+########################################################################################         
+            # # Ambil kolom batch utama
+            # batch_col_primary = batch_cols[0] if batch_cols else "Nomor Batch"
+            
+            # # Buat dataframe hasil per baris
+            # summary_by_kode = complete_df[["Kode Bahan", batch_col_primary, "Label QC"]].copy()
+            
+            # # Sort biar rapi
+            # summary_by_kode = summary_by_kode.sort_values(by=["Kode Bahan", batch_col_primary, "Label QC"])
+            
+            # # Tampilkan
+            # st.subheader("🧾 Ringkasan Kode Bahan → Batch dan Label QC (Per Baris)")
+            # st.dataframe(summary_by_kode)
+            
+            # # Tombol download
+            # def to_excel(df):
+            #     output = io.BytesIO()
+            #     with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            #         df.to_excel(writer, index=False, sheet_name="Kode Bahan")
+            #     output.seek(0)
+            #     return output
+            
+            # excel_summary = to_excel(summary_by_kode)
+            # st.download_button(
+            #     label="📥 Download Ringkasan Per Baris (Excel)",
+            #     data=excel_summary,
+            #     file_name="ringkasan_per_baris_kode_bahan.xlsx",
+            #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            # )
 ########################################################################################
             
             # Fitur Download Ringkasan untuk semua kode bahan
