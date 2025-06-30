@@ -145,6 +145,31 @@ def filter_labelqc():
                     output.seek(0)
                     return output
 
+                # Tombol download Excel Kode Bahan
+                def to_excel_styled(df):
+                    from openpyxl.styles import PatternFill
+                    output = io.BytesIO()
+                    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                        df.to_excel(writer, index=False, sheet_name="Kode Bahan")
+                        wb = writer.book
+                        ws = writer.sheets["Kode Bahan"]
+                
+                        gray1 = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+                        gray2 = PatternFill(start_color="BBBBBB", end_color="BBBBBB", fill_type="solid")
+                
+                        jumlah_idx = df.columns.get_loc("Jumlah Batch") + 1
+                        fill = gray1
+                
+                        for row in range(2, len(df) + 2):
+                            val = ws.cell(row=row, column=jumlah_idx).value
+                            for col in range(1, len(df.columns) + 1):
+                                ws.cell(row=row, column=col).fill = fill
+                            if val:
+                                fill = gray2 if fill == gray1 else gray1
+                
+                    output.seek(0)
+                    return output
+
                 
                 excel_all_grouped = to_excel(grouped_all_df)
                 st.download_button(
@@ -153,40 +178,7 @@ def filter_labelqc():
                     file_name="ringkasan_semua_label_qc.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
-########################################################################################    
-            # # Fitur filter untuk detail kode bahan tertentu
-            # st.header("🔍 Filter Berdasarkan Kode Bahan")
-            # selected_kode = st.selectbox("Pilih Kode Bahan untuk Detail", kode_bahan_list)
-
-            # # Filter berdasarkan pasangan kode dan label yang sesuai
-            # hasil_data = []
-
-            # for kode_col, label_col in kode_bahan_pairs:
-            #     mask = df_asli[kode_col].astype(str).str.strip() == selected_kode
-            #     filtered_rows = df_asli[mask]
-            #     for _, row in filtered_rows.iterrows():
-            #         batch_info = {batch_col: row[batch_col] if pd.notna(row[batch_col]) else "" for batch_col in batch_cols}
-            #         hasil_data.append({
-            #             "Kode Bahan": selected_kode,
-            #             "Label QC": row[label_col] if pd.notna(row[label_col]) else "",
-            #             **batch_info
-            #         })
-
-            # hasil_df = pd.DataFrame(hasil_data)
-
-            # st.subheader(f"🏷️ Detail Label QC untuk Kode Bahan: {selected_kode}")
-            # st.dataframe(hasil_df)
-
-            # # Fitur Download Dataframe ke Excel
-            # if not hasil_df.empty:
-            #     excel_data = to_excel(hasil_df)
-            #     st.download_button(
-            #         label="📥 Download Detail Label QC (Excel)",
-            #         data=excel_data,
-            #         file_name=f"detail_label_qc_{selected_kode}.xlsx",
-            #         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            #     )
-
+######################################################################################## 
             # Tampilkan semua data lengkap: Kode Bahan - Nomor Batch - Label QC
             st.header("📋 Semua Kode Bahan dengan Batch dan Label QC.")
             
@@ -220,32 +212,7 @@ def filter_labelqc():
             
             st.dataframe(summary_by_kode)
             
-            # Tombol download Excel
-            def to_excel(df):
-                from openpyxl.styles import PatternFill
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                    df.to_excel(writer, index=False, sheet_name="Kode Bahan")
-                    wb = writer.book
-                    ws = writer.sheets["Kode Bahan"]
-            
-                    gray1 = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
-                    gray2 = PatternFill(start_color="BBBBBB", end_color="BBBBBB", fill_type="solid")
-            
-                    jumlah_idx = df.columns.get_loc("Jumlah Batch") + 1
-                    fill = gray1
-            
-                    for row in range(2, len(df) + 2):
-                        val = ws.cell(row=row, column=jumlah_idx).value
-                        for col in range(1, len(df.columns) + 1):
-                            ws.cell(row=row, column=col).fill = fill
-                        if val:
-                            fill = gray2 if fill == gray1 else gray1
-            
-                output.seek(0)
-                return output
-            
-            excel_summary = to_excel(summary_by_kode)
+            excel_summary = to_excel_styled(summary_by_kode)
             st.download_button(
                 label="📥 Download Semua Data Kode Bahan (Excel)",
                 data=excel_summary,
