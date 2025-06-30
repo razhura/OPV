@@ -87,37 +87,7 @@ def filter_labelqc():
             
             # Tampilkan ringkasan untuk semua kode bahan
             st.subheader("🧾 Ringkasan Label QC untuk Semua Kode Bahan")
-            st.dataframe(grouped_all_df)
-########################################################################################         
-            # # Ambil kolom batch utama
-            # batch_col_primary = batch_cols[0] if batch_cols else "Nomor Batch"
-            
-            # # Buat dataframe hasil per baris
-            # summary_by_kode = complete_df[["Kode Bahan", batch_col_primary, "Label QC"]].copy()
-            
-            # # Sort biar rapi
-            # summary_by_kode = summary_by_kode.sort_values(by=["Kode Bahan", batch_col_primary, "Label QC"])
-            
-            # # Tampilkan
-            # st.subheader("🧾 Ringkasan Kode Bahan → Batch dan Label QC (Per Baris)")
-            # st.dataframe(summary_by_kode)
-            
-            # # Tombol download
-            # def to_excel(df):
-            #     output = io.BytesIO()
-            #     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            #         df.to_excel(writer, index=False, sheet_name="Kode Bahan")
-            #     output.seek(0)
-            #     return output
-            
-            # excel_summary = to_excel(summary_by_kode)
-            # st.download_button(
-            #     label="📥 Download Ringkasan Per Baris (Excel)",
-            #     data=excel_summary,
-            #     file_name="ringkasan_per_baris_kode_bahan.xlsx",
-            #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            # )
-########################################################################################
+            st.dataframe(grouped_all_df)       
             
             # Fitur Download Ringkasan untuk semua kode bahan
             if not grouped_all_df.empty:
@@ -183,40 +153,66 @@ def filter_labelqc():
                     file_name="ringkasan_semua_label_qc.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
+########################################################################################    
+            # # Fitur filter untuk detail kode bahan tertentu
+            # st.header("🔍 Filter Berdasarkan Kode Bahan")
+            # selected_kode = st.selectbox("Pilih Kode Bahan untuk Detail", kode_bahan_list)
+
+            # # Filter berdasarkan pasangan kode dan label yang sesuai
+            # hasil_data = []
+
+            # for kode_col, label_col in kode_bahan_pairs:
+            #     mask = df_asli[kode_col].astype(str).str.strip() == selected_kode
+            #     filtered_rows = df_asli[mask]
+            #     for _, row in filtered_rows.iterrows():
+            #         batch_info = {batch_col: row[batch_col] if pd.notna(row[batch_col]) else "" for batch_col in batch_cols}
+            #         hasil_data.append({
+            #             "Kode Bahan": selected_kode,
+            #             "Label QC": row[label_col] if pd.notna(row[label_col]) else "",
+            #             **batch_info
+            #         })
+
+            # hasil_df = pd.DataFrame(hasil_data)
+
+            # st.subheader(f"🏷️ Detail Label QC untuk Kode Bahan: {selected_kode}")
+            # st.dataframe(hasil_df)
+
+            # # Fitur Download Dataframe ke Excel
+            # if not hasil_df.empty:
+            #     excel_data = to_excel(hasil_df)
+            #     st.download_button(
+            #         label="📥 Download Detail Label QC (Excel)",
+            #         data=excel_data,
+            #         file_name=f"detail_label_qc_{selected_kode}.xlsx",
+            #         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            #     )
+
+            # Tampilkan semua data lengkap: Kode Bahan - Nomor Batch - Label QC
+            st.header("📋 Semua Kode Bahan dengan Batch dan Label QC")
             
-            # Fitur filter untuk detail kode bahan tertentu
-            st.header("🔍 Filter Berdasarkan Kode Bahan")
-            selected_kode = st.selectbox("Pilih Kode Bahan untuk Detail", kode_bahan_list)
+            batch_col_primary = batch_cols[0] if batch_cols else "Nomor Batch"
+            summary_by_kode = complete_df[["Kode Bahan", batch_col_primary, "Label QC"]].copy()
+            summary_by_kode = summary_by_kode.sort_values(by=["Kode Bahan", batch_col_primary, "Label QC"])
+            
+            st.dataframe(summary_by_kode)
+            
+            # Tombol download Excel
+            def to_excel(df):
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                    df.to_excel(writer, index=False, sheet_name="Kode Bahan")
+                output.seek(0)
+                return output
+            
+            excel_summary = to_excel(summary_by_kode)
+            st.download_button(
+                label="📥 Download Semua Data Kode Bahan (Excel)",
+                data=excel_summary,
+                file_name="semua_kode_bahan.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
 
-            # Filter berdasarkan pasangan kode dan label yang sesuai
-            hasil_data = []
-
-            for kode_col, label_col in kode_bahan_pairs:
-                mask = df_asli[kode_col].astype(str).str.strip() == selected_kode
-                filtered_rows = df_asli[mask]
-                for _, row in filtered_rows.iterrows():
-                    batch_info = {batch_col: row[batch_col] if pd.notna(row[batch_col]) else "" for batch_col in batch_cols}
-                    hasil_data.append({
-                        "Kode Bahan": selected_kode,
-                        "Label QC": row[label_col] if pd.notna(row[label_col]) else "",
-                        **batch_info
-                    })
-
-            hasil_df = pd.DataFrame(hasil_data)
-
-            st.subheader(f"🏷️ Detail Label QC untuk Kode Bahan: {selected_kode}")
-            st.dataframe(hasil_df)
-
-            # Fitur Download Dataframe ke Excel
-            if not hasil_df.empty:
-                excel_data = to_excel(hasil_df)
-                st.download_button(
-                    label="📥 Download Detail Label QC (Excel)",
-                    data=excel_data,
-                    file_name=f"detail_label_qc_{selected_kode}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-
+########################################################################################  
             # FITUR BARU: Filter berdasarkan Label QC (MULTIPLE SELECTION)
             st.header("🔍 Filter Berdasarkan Label QC")
             
