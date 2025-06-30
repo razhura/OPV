@@ -371,7 +371,7 @@ def process_files(files_to_process_ordered, column_mode="gabung"):
 
 def process_multiple_excel_files():
     st.title("CQA EKSTRAK")
-    st.write("Upload File yang banyak 🤑")
+    st.write("Upload Beberapa File")
 
     # Inisialisasi session state jika belum ada
     if 'files_for_cqa_processing' not in st.session_state:
