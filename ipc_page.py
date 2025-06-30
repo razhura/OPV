@@ -367,7 +367,7 @@ def get_excel_for_download(df, index=True):
 
 def tampilkan_ipc():
     st.title("Halaman IPC.")
-    st.write("Ini adalah tampilan khusus IPC.")
+    st.write("Ini adalah tampilan khusus IPC")
     
     selected_option = st.radio(
         "Pilih jenis pengujian:",
