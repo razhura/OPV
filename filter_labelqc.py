@@ -89,34 +89,34 @@ def filter_labelqc():
             # st.subheader("🧾 Ringkasan Label QC untuk Semua Kode Bahan")
             # st.dataframe(grouped_all_df)
 ########################################################################################         
-            # Ambil kolom batch utama
-            batch_col_primary = batch_cols[0] if batch_cols else "Nomor Batch"
+            # # Ambil kolom batch utama
+            # batch_col_primary = batch_cols[0] if batch_cols else "Nomor Batch"
             
-            # Buat dataframe hasil per baris
-            summary_by_kode = complete_df[["Kode Bahan", batch_col_primary, "Label QC"]].copy()
+            # # Buat dataframe hasil per baris
+            # summary_by_kode = complete_df[["Kode Bahan", batch_col_primary, "Label QC"]].copy()
             
-            # Sort biar rapi
-            summary_by_kode = summary_by_kode.sort_values(by=["Kode Bahan", batch_col_primary, "Label QC"])
+            # # Sort biar rapi
+            # summary_by_kode = summary_by_kode.sort_values(by=["Kode Bahan", batch_col_primary, "Label QC"])
             
-            # Tampilkan
-            st.subheader("🧾 Ringkasan Kode Bahan → Batch dan Label QC (Per Baris)")
-            st.dataframe(summary_by_kode)
+            # # Tampilkan
+            # st.subheader("🧾 Ringkasan Kode Bahan → Batch dan Label QC (Per Baris)")
+            # st.dataframe(summary_by_kode)
             
-            # Tombol download
-            def to_excel(df):
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                    df.to_excel(writer, index=False, sheet_name="Kode Bahan")
-                output.seek(0)
-                return output
+            # # Tombol download
+            # def to_excel(df):
+            #     output = io.BytesIO()
+            #     with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            #         df.to_excel(writer, index=False, sheet_name="Kode Bahan")
+            #     output.seek(0)
+            #     return output
             
-            excel_summary = to_excel(summary_by_kode)
-            st.download_button(
-                label="📥 Download Ringkasan Per Baris (Excel)",
-                data=excel_summary,
-                file_name="ringkasan_per_baris_kode_bahan.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+            # excel_summary = to_excel(summary_by_kode)
+            # st.download_button(
+            #     label="📥 Download Ringkasan Per Baris (Excel)",
+            #     data=excel_summary,
+            #     file_name="ringkasan_per_baris_kode_bahan.xlsx",
+            #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            # )
 ########################################################################################
             
             # Fitur Download Ringkasan untuk semua kode bahan
