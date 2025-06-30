@@ -197,6 +197,8 @@ def filter_labelqc():
                 .sort_values(by=["Kode Bahan", batch_col_primary, "Label QC"])
             )
 
+         
+
             
             st.dataframe(summary_by_kode)
             
