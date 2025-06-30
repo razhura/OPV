@@ -197,8 +197,26 @@ def filter_labelqc():
                 .sort_values(by=["Kode Bahan", batch_col_primary, "Label QC"])
             )
 
-         
-
+            # Tambahkan kolom prefix bulan dari nomor batch (misal: 'AUG24' dari 'AUG24A01')
+            summary_by_kode["Prefix Bulan"] = summary_by_kode[batch_col_primary].str.extract(r'^([A-Z]{3}\d{2})')
+            
+            # Inisialisasi kolom Jumlah Batch kosong
+            summary_by_kode["Jumlah Batch"] = ""
+            
+            # Grup berdasarkan: Kode Bahan, Label QC, dan Prefix Bulan
+            grouped = summary_by_kode.groupby(["Kode Bahan", "Label QC", "Prefix Bulan"])
+            
+            # Isi jumlah batch hanya di baris terakhir per grup
+            for _, group_indices in grouped.groups.items():
+                group_rows = summary_by_kode.loc[group_indices]
+                jumlah = group_rows[batch_col_primary].nunique()
+                last_index = group_rows.index[-1]
+                summary_by_kode.at[last_index, "Jumlah Batch"] = jumlah
+            
+            # Hapus kolom bantu
+            summary_by_kode = summary_by_kode.drop(columns=["Prefix Bulan"])
+            # Urutkan ulang kolom biar rapi
+            summary_by_kode = summary_by_kode[["Kode Bahan", batch_col_primary, "Label QC", "Jumlah Batch"]]
             
             st.dataframe(summary_by_kode)
             
