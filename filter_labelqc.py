@@ -382,15 +382,19 @@ def filter_labelqc():
                         "Subtotal": ""
                     })
             
+                # Tampilkan subtotal hanya kalau lebih dari 1 penimbangan
                 if len(group) > 1:
                     total_terpakai = group["Angka Terpakai"].sum()
                     total_rusak = group["Angka Rusak"].sum()
-                
+            
+                    total_terpakai_str = f"{int(total_terpakai):,}".replace(",", ".") + " GRAM"
+                    total_rusak_str = f"{int(total_rusak):,}".replace(",", ".")
+            
                     hasil.append({
                         "Nomor Batch": "",
                         "Nama Bahan Formula": "",
-                        "Kuantiti: Terpakai": f"{int(total_terpakai):,} GRAM",
-                        "Kuantiti: Rusak": f"{int(total_rusak):,}",
+                        "Kuantiti: Terpakai": total_terpakai_str,
+                        "Kuantiti: Rusak": total_rusak_str,
                         "Label QC": "",
                         "Subtotal": "TOTAL"
                     })
