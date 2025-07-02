@@ -359,8 +359,10 @@ def filter_labelqc():
             # Ambil angka dari kolom kuantiti
             def extract_angka(x):
                 try:
-                    num = str(x).split()[0].replace(".", "")  # hilangkan titik ribuan
-                    return float(num)
+                    num_str = str(x).split()[0]
+                    num_str = num_str.replace(".", "")      # hapus titik ribuan
+                    num_str = num_str.replace(",", ".")     # ubah koma jadi titik desimal
+                    return float(num_str)
                 except:
                     return 0
 
