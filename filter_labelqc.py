@@ -437,5 +437,8 @@ def filter_labelqc():
             #     st.info("Tidak ada data yang dapat ditampilkan.")
 
 
+        except Exception as e:
+            st.error(f"❌ Terjadi kesalahan saat membaca file: {e}")
+
 if __name__ == "__main__":
     filter_labelqc()
