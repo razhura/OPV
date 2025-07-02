@@ -431,7 +431,6 @@ def filter_labelqc():
             
             if dfs_horizontal:
                 df_preview_horizontal = reduce(lambda left, right: pd.concat([left, right], axis=1), dfs_horizontal)
-                st.subheader("👀 Preview Rekap Blok Tiap Bahan (Horizontal)")
                 st.dataframe(df_preview_horizontal)
             else:
                 st.info("Tidak ada data yang dapat ditampilkan.")
