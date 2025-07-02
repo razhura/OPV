@@ -9,7 +9,7 @@ import os
 
 
 def filter_labelqc():
-    st.title("📤 UPLOAD HASIL JADI DARI CPP BAHAN.")
+    st.title("📤 UPLOAD HASIL JADI DARI CPP BAHAN")
     uploaded_file = st.file_uploader("Upload file Excel", type=["xlsx", "csv"])
 
     if uploaded_file is not None:
@@ -359,9 +359,11 @@ def filter_labelqc():
             # Ambil angka dari kolom kuantiti
             def extract_angka(x):
                 try:
-                    return float(str(x).split()[0])
+                    num = str(x).split()[0].replace(".", "")  # hilangkan titik ribuan
+                    return float(num)
                 except:
                     return 0
+
             
             df_kuantiti["Angka Terpakai"] = df_kuantiti["Kuantiti: Terpakai"].apply(extract_angka)
             df_kuantiti["Angka Rusak"] = df_kuantiti["Kuantiti: Rusak"].apply(extract_angka)
@@ -380,17 +382,19 @@ def filter_labelqc():
                         "Subtotal": ""
                     })
             
-                total_terpakai = group["Angka Terpakai"].sum()
-                total_rusak = group["Angka Rusak"].sum()
-            
-                hasil.append({
-                    "Nomor Batch": "",
-                    "Nama Bahan Formula": "",
-                    "Kuantiti: Terpakai": f"{int(total_terpakai)} GRAM",
-                    "Kuantiti: Rusak": f"{int(total_rusak)}",
-                    "Label QC": "",
-                    "Subtotal": "TOTAL"
-                })
+                if len(group) > 1:
+                    total_terpakai = group["Angka Terpakai"].sum()
+                    total_rusak = group["Angka Rusak"].sum()
+                
+                    hasil.append({
+                        "Nomor Batch": "",
+                        "Nama Bahan Formula": "",
+                        "Kuantiti: Terpakai": f"{int(total_terpakai):,} GRAM",
+                        "Kuantiti: Rusak": f"{int(total_rusak):,}",
+                        "Label QC": "",
+                        "Subtotal": "TOTAL"
+                    })
+
             
             df_hasil = pd.DataFrame(hasil)
             st.dataframe(df_hasil)
