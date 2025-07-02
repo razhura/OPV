@@ -171,38 +171,52 @@ def filter_labelqc():
                     return output
 
                 # Fungsi download excel kuantiti
-                def to_excel_summary_merged(df):
-                    from openpyxl.styles import Alignment
-                    from openpyxl.utils import get_column_letter
-                    from openpyxl import Workbook
+                def to_excel_merged_blocks(df):
                     import openpyxl
-                
+                    from openpyxl.styles import Alignment
                     output = io.BytesIO()
+                
                     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                        df.to_excel(writer, index=False, sheet_name="Rekap Kuantiti", startrow=1)
-                        wb = writer.book
-                        ws = writer.sheets["Rekap Kuantiti"]
+                        bahan_unik = df["Nama Bahan Formula"].dropna().unique()
+                        col_start = 0
                 
-                        # Mapping kolom ke indeks
-                        col_map = {col: i+1 for i, col in enumerate(df.columns)}
-                        terpakai_idx = col_map["Kuantiti: Terpakai"]
-                        rusak_idx = col_map["Kuantiti: Rusak"]
+                        for bahan in bahan_unik:
+                            df_bahan = df[df["Nama Bahan Formula"] == bahan].copy().reset_index(drop=True)
                 
-                        # Merge header baris pertama
-                        ws.merge_cells(
-                            start_row=1, start_column=terpakai_idx,
-                            end_row=1, end_column=rusak_idx
-                        )
-                        ws.cell(row=1, column=terpakai_idx).value = "Kuantiti"
-                        ws.cell(row=1, column=terpakai_idx).alignment = Alignment(horizontal="center")
+                            # Rename header hanya untuk merge
+                            df_bahan = df_bahan.rename(columns={
+                                "Kuantiti: Terpakai": "Kuantiti: Terpakai",
+                                "Kuantiti: Rusak": "Kuantiti: Rusak"
+                            })
                 
-                        # Header bawah
-                        for col, name in enumerate(df.columns, start=1):
-                            ws.cell(row=2, column=col).value = name
-                            ws.cell(row=2, column=col).alignment = Alignment(horizontal="center")
+                            # Tulis data mulai dari row 2
+                            df_bahan.to_excel(writer, index=False, sheet_name="Rekap Per Bahan",
+                                              startrow=1, startcol=col_start)
+                
+                            # Handle merge header
+                            wb = writer.book
+                            ws = writer.sheets["Rekap Per Bahan"]
+                
+                            col_map = {col: idx+col_start+1 for idx, col in enumerate(df_bahan.columns)}
+                            terpakai_idx = col_map["Kuantiti: Terpakai"]
+                            rusak_idx = col_map["Kuantiti: Rusak"]
+                
+                            # Merge "Kuantiti" di baris 1
+                            ws.merge_cells(start_row=1, start_column=terpakai_idx, end_row=1, end_column=rusak_idx)
+                            ws.cell(row=1, column=terpakai_idx).value = "Kuantiti"
+                            ws.cell(row=1, column=terpakai_idx).alignment = Alignment(horizontal="center")
+                
+                            # Isi header row 2 (nama kolom asli)
+                            for col_name, col_idx in col_map.items():
+                                ws.cell(row=2, column=col_idx).value = col_name
+                                ws.cell(row=2, column=col_idx).alignment = Alignment(horizontal="center")
+                
+                            # Geser posisi ke kanan untuk blok bahan selanjutnya
+                            col_start += len(df_bahan.columns) + 2
                 
                     output.seek(0)
                     return output
+
                 
                 
                 excel_all_grouped = to_excel(grouped_all_df)
