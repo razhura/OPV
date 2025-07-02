@@ -151,8 +151,8 @@ def transform_batch_data(df): # NEW SIGNATURE - remove formula_name parameter
 
             for _, item in group.iterrows():
                 row_data.extend([
-                    item['Kode Bahan'],
                     item['Nama Bahan Formula'],
+                    item['Kode Bahan'],
                     item['Kuantiti > Terpakai'],
                     item['Kuantiti > Rusak'],
                     item['No Lot Supplier'],
@@ -173,8 +173,8 @@ def transform_batch_data(df): # NEW SIGNATURE - remove formula_name parameter
     headers = ['Nomor Batch', 'No. Order Produksi', 'Jalur'] # NEW
     for i in range(1, max_items + 1):
         headers.extend([
-            f"Kode Bahan {i}",
             f"Nama Bahan Formula {i}",
+            f"Kode Bahan {i}",
             f"Kuantiti > Terpakai {i}",
             f"Kuantiti > Rusak {i}",
             f"No Lot Supplier {i}",
