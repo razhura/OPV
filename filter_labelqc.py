@@ -182,39 +182,44 @@ def filter_labelqc():
                         for bahan in bahan_unik:
                             df_bahan = df[df["Nama Bahan Formula"] == bahan].copy().reset_index(drop=True)
                 
-                            # Rename header hanya untuk merge
                             df_bahan = df_bahan.rename(columns={
                                 "Kuantiti: Terpakai": "Kuantiti: Terpakai",
                                 "Kuantiti: Rusak": "Kuantiti: Rusak"
                             })
                 
-                            # Tulis data mulai dari row 2
                             df_bahan.to_excel(writer, index=False, sheet_name="Rekap Per Bahan",
                                               startrow=1, startcol=col_start)
                 
-                            # Handle merge header
                             wb = writer.book
                             ws = writer.sheets["Rekap Per Bahan"]
                 
-                            col_map = {col: idx+col_start+1 for idx, col in enumerate(df_bahan.columns)}
+                            col_map = {col: idx + col_start + 1 for idx, col in enumerate(df_bahan.columns)}
                             terpakai_idx = col_map["Kuantiti: Terpakai"]
                             rusak_idx = col_map["Kuantiti: Rusak"]
                 
-                            # Merge "Kuantiti" di baris 1
+                            # Merge "Kuantiti" (2 kolom)
                             ws.merge_cells(start_row=1, start_column=terpakai_idx, end_row=1, end_column=rusak_idx)
                             ws.cell(row=1, column=terpakai_idx).value = "Kuantiti"
                             ws.cell(row=1, column=terpakai_idx).alignment = Alignment(horizontal="center")
                 
-                            # Isi header row 2 (nama kolom asli)
+                            # Merge semua header lain 2 baris (biar sejajar)
                             for col_name, col_idx in col_map.items():
-                                ws.cell(row=2, column=col_idx).value = col_name
-                                ws.cell(row=2, column=col_idx).alignment = Alignment(horizontal="center")
+                                if col_idx < terpakai_idx or col_idx > rusak_idx:
+                                    ws.merge_cells(start_row=1, start_column=col_idx, end_row=2, end_column=col_idx)
+                                    ws.cell(row=1, column=col_idx).value = col_name
+                                    ws.cell(row=1, column=col_idx).alignment = Alignment(horizontal="center")
                 
-                            # Geser posisi ke kanan untuk blok bahan selanjutnya
-                            col_start += len(df_bahan.columns) + 2
+                                else:
+                                    # Baris 2 tetap pakai nama kolom
+                                    ws.cell(row=2, column=col_idx).value = col_name
+                                    ws.cell(row=2, column=col_idx).alignment = Alignment(horizontal="center")
+                
+                            # Geser posisi ke kanan tanpa spasi kolom
+                            col_start += len(df_bahan.columns)
                 
                     output.seek(0)
                     return output
+
 
                 
                 
