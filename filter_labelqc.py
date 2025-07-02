@@ -298,13 +298,32 @@ def filter_labelqc():
             if not complete_df.empty:
                 # Ambil data yang diperlukan dan buang NaN
                 df_kuantiti = df_asli.copy()
-                kolom_diperlukan = []
-            
-                for col in df_kuantiti.columns:
-                    if any(x in col for x in ["Nomor Batch", "Nama Bahan", "Kuantiti > Terpakai", "Kuantiti > Rusak", "Label QC"]):
-                        kolom_diperlukan.append(col)
-            
-                df_kuantiti = df_kuantiti[kolom_diperlukan].copy()
+                batch_col = [col for col in df_asli.columns if "Batch" in col][0]  # Ambil batch utama
+                
+                bahan_cols = [col for col in df_asli.columns if col.startswith("Nama Bahan")]
+                terpakai_cols = [col for col in df_asli.columns if col.startswith("Kuantiti > Terpakai")]
+                rusak_cols = [col for col in df_asli.columns if col.startswith("Kuantiti > Rusak")]
+                label_cols = [col for col in df_asli.columns if col.startswith("Label QC")]
+                
+                rows = []
+                
+                for i in range(len(bahan_cols)):
+                    bahan_col = bahan_cols[i]
+                    terpakai_col = terpakai_cols[i] if i < len(terpakai_cols) else None
+                    rusak_col = rusak_cols[i] if i < len(rusak_cols) else None
+                    label_col = label_cols[i] if i < len(label_cols) else None
+                
+                    for idx, row in df_asli.iterrows():
+                        rows.append({
+                            "Nomor Batch": row[batch_col],
+                            "Nama Bahan": row[bahan_col],
+                            "Kuantiti Terpakai": row[terpakai_col] if terpakai_col else "",
+                            "Kuantiti Rusak": row[rusak_col] if rusak_col else "",
+                            "Label QC": row[label_col] if label_col else ""
+                        })
+                
+                df_kuantiti = pd.DataFrame(rows)
+
             
                 # Normalisasi nama kolom
                 df_kuantiti.columns = [col.strip().replace("Nama Bahan Formula", "Nama Bahan")
