@@ -168,60 +168,6 @@ def filter_labelqc():
                 
                     output.seek(0)
                     return output
-
-                # Fungsi download excel kuantiti
-                def to_excel_merged_blocks(df):
-                    import openpyxl
-                    from openpyxl.styles import Alignment
-                    output = io.BytesIO()
-                
-                    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                        bahan_unik = df["Nama Bahan Formula"].dropna().unique()
-                        col_start = 0
-                
-                        for bahan in bahan_unik:
-                            df_bahan = df[df["Nama Bahan Formula"] == bahan].copy().reset_index(drop=True)
-                
-                            df_bahan = df_bahan.rename(columns={
-                                "Kuantiti: Terpakai": "Kuantiti: Terpakai",
-                                "Kuantiti: Rusak": "Kuantiti: Rusak"
-                            })
-                
-                            df_bahan.to_excel(writer, index=False, sheet_name="Rekap Per Bahan",
-                                              startrow=1, startcol=col_start)
-                
-                            wb = writer.book
-                            ws = writer.sheets["Rekap Per Bahan"]
-                
-                            col_map = {col: idx + col_start + 1 for idx, col in enumerate(df_bahan.columns)}
-                            terpakai_idx = col_map["Kuantiti: Terpakai"]
-                            rusak_idx = col_map["Kuantiti: Rusak"]
-                
-                            # Merge "Kuantiti" (2 kolom)
-                            ws.merge_cells(start_row=1, start_column=terpakai_idx, end_row=1, end_column=rusak_idx)
-                            ws.cell(row=1, column=terpakai_idx).value = "Kuantiti"
-                            ws.cell(row=1, column=terpakai_idx).alignment = Alignment(horizontal="center")
-                
-                            # Merge semua header lain 2 baris (biar sejajar)
-                            for col_name, col_idx in col_map.items():
-                                if col_idx < terpakai_idx or col_idx > rusak_idx:
-                                    ws.merge_cells(start_row=1, start_column=col_idx, end_row=2, end_column=col_idx)
-                                    ws.cell(row=1, column=col_idx).value = col_name
-                                    ws.cell(row=1, column=col_idx).alignment = Alignment(horizontal="center")
-                
-                                else:
-                                    # Baris 2 tetap pakai nama kolom
-                                    ws.cell(row=2, column=col_idx).value = col_name
-                                    ws.cell(row=2, column=col_idx).alignment = Alignment(horizontal="center")
-                
-                            # Geser posisi ke kanan tanpa spasi kolom
-                            col_start += len(df_bahan.columns)
-                
-                    output.seek(0)
-                    return output
-
-
-                
                 
                 excel_all_grouped = to_excel(grouped_all_df)
                 st.download_button(
@@ -346,108 +292,136 @@ def filter_labelqc():
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
 
-            # Kuantiti
-            st.header("📦 Rekap Kuantiti per Nama Bahan per Batch")
-            kuantiti_data = []
-            for i in range(20):  # maksimal 20 pasangan
-                nama_col = f"Nama Bahan Formula{'' if i == 0 else f'.{i}'}"
-                terpakai_col = f"Kuantiti > Terpakai{'' if i == 0 else f'.{i}'}"
-                rusak_col = f"Kuantiti > Rusak{'' if i == 0 else f'.{i}'}"
-                label_col = f"Label QC{'' if i == 0 else f'.{i}'}"
+            # === FITUR: Rekap Kuantiti per Bahan (Horizontal) ===
+            st.header("🔢 Rekap Kuantiti per Bahan")
             
-                if nama_col in df_asli.columns and terpakai_col in df_asli.columns:
-                    for _, row in df_asli.iterrows():
-                        batch = row[batch_cols[0]] if batch_cols else ""
-                        nama = row[nama_col]
-                        terpakai = row[terpakai_col]
-                        rusak = row[rusak_col] if rusak_col in df_asli.columns else 0
-                        label = row[label_col] if label_col in df_asli.columns else ""
+            if not complete_df.empty:
+                # Ambil data yang diperlukan dan buang NaN
+                df_kuantiti = df_asli.copy()
+                kolom_diperlukan = []
             
-                        if pd.notna(nama) and pd.notna(terpakai):
-                            kuantiti_data.append({
-                                "Nomor Batch": batch,
-                                "Nama Bahan Formula": nama,
-                                "Kuantiti: Terpakai": terpakai,
-                                "Kuantiti: Rusak": rusak,
-                                "Label QC": label
-                            })
+                for col in df_kuantiti.columns:
+                    if any(x in col for x in ["Nomor Batch", "Nama Bahan", "Kuantiti > Terpakai", "Kuantiti > Rusak", "Label QC"]):
+                        kolom_diperlukan.append(col)
             
-            df_kuantiti = pd.DataFrame(kuantiti_data)
+                df_kuantiti = df_kuantiti[kolom_diperlukan].copy()
             
-            # Ambil angka dari kolom kuantiti
-            def extract_angka(x):
-                try:
-                    num_str = str(x).split()[0]
-                    num_str = num_str.replace(".", "")      # hapus titik ribuan
-                    num_str = num_str.replace(",", ".")     # ubah koma jadi titik desimal
-                    return float(num_str)
-                except:
-                    return 0
-
+                # Normalisasi nama kolom
+                df_kuantiti.columns = [col.strip().replace("Nama Bahan Formula", "Nama Bahan")
+                                       .replace("Kuantiti > Terpakai", "Kuantiti Terpakai")
+                                       .replace("Kuantiti > Rusak", "Kuantiti Rusak")
+                                       for col in df_kuantiti.columns]
             
-            df_kuantiti["Angka Terpakai"] = df_kuantiti["Kuantiti: Terpakai"].apply(extract_angka)
-            df_kuantiti["Angka Rusak"] = df_kuantiti["Kuantiti: Rusak"].apply(extract_angka)
+                df_kuantiti = df_kuantiti.dropna(subset=["Nama Bahan", "Kuantiti Terpakai"], how="any")
             
-            hasil = []
-            grouped = df_kuantiti.groupby(["Nomor Batch", "Nama Bahan Formula"])
+                # Ekstrak angka dari kuantiti
+                def extract_angka(x):
+                    try:
+                        num = str(x).split()[0].replace(".", "").replace(",", ".")
+                        return float(num)
+                    except:
+                        return 0
             
-            for (batch, bahan), group in grouped:
-                for idx, row in group.iterrows():
-                    hasil.append({
-                        "Nomor Batch": batch if idx == group.index[0] else "",
-                        "Nama Bahan Formula": bahan if idx == group.index[0] else "",
-                        "Kuantiti: Terpakai": row["Kuantiti: Terpakai"],
-                        "Kuantiti: Rusak": row["Kuantiti: Rusak"],
-                        "Label QC": row["Label QC"]
-                    })
+                df_kuantiti["Kuantiti Terpakai (Angka)"] = df_kuantiti["Kuantiti Terpakai"].apply(extract_angka)
+                df_kuantiti["Kuantiti Rusak (Angka)"] = df_kuantiti["Kuantiti Rusak"].apply(extract_angka)
             
-                if len(group) > 1:
-                    total_terpakai = group["Angka Terpakai"].sum()
-                    total_rusak = group["Angka Rusak"].sum()
+                # Buat dataframe rekap (stacked dulu)
+                hasil = []
+                grouped = df_kuantiti.groupby(["Nomor Batch", "Nama Bahan"])
             
-                    total_terpakai_str = f"{int(total_terpakai):,}".replace(",", ".") + " GRAM"
-                    total_rusak_str = f"{int(total_rusak):,}".replace(",", ".")
+                for (batch, bahan), group in grouped:
+                    for idx, row in group.iterrows():
+                        hasil.append({
+                            "Nomor Batch": batch if idx == group.index[0] else "",
+                            "Nama Bahan": bahan if idx == group.index[0] else "",
+                            "Kuantiti Terpakai": row["Kuantiti Terpakai"],
+                            "Kuantiti Rusak": row["Kuantiti Rusak"],
+                            "Label QC": row["Label QC"]
+                        })
+                    if len(group) > 1:
+                        total_terpakai = group["Kuantiti Terpakai (Angka)"].sum()
+                        total_rusak = group["Kuantiti Rusak (Angka)"].sum()
+                        hasil.append({
+                            "Nomor Batch": "",
+                            "Nama Bahan": "",
+                            "Kuantiti Terpakai": f"{int(total_terpakai):,}".replace(",", ".") + " GRAM",
+                            "Kuantiti Rusak": f"{int(total_rusak):,}".replace(",", "."),
+                            "Label QC": ""
+                        })
             
-                    hasil.append({
-                        "Nomor Batch": "",
-                        "Nama Bahan Formula": "",
-                        "Kuantiti: Terpakai": total_terpakai_str,
-                        "Kuantiti: Rusak": total_rusak_str,
-                        "Label QC": ""
-                    })
-
+                df_stacked = pd.DataFrame(hasil)
             
-            df_hasil = pd.DataFrame(hasil)
-            #st.dataframe(df_hasil)
-            from functools import reduce
+                # Tampilkan preview horizontal (dengan suffix .1 .2 .3 dst biar nggak error)
+                from functools import reduce
             
-            bahan_unik = df_hasil["Nama Bahan Formula"].dropna().unique()
-            dfs_horizontal = []
+                bahan_unik = df_stacked["Nama Bahan"].dropna().unique()
+                dfs_horizontal = []
             
-            for idx, bahan in enumerate(bahan_unik):
-                df_bahan = df_hasil[df_hasil["Nama Bahan Formula"] == bahan].copy()
-                df_bahan.reset_index(drop=True, inplace=True)
+                for idx, bahan in enumerate(bahan_unik):
+                    df_bahan = df_stacked[df_stacked["Nama Bahan"] == bahan].copy()
+                    df_bahan.reset_index(drop=True, inplace=True)
+                    suffix = f".{idx}" if idx > 0 else ""
+                    df_bahan.columns = [f"{col}{suffix}" for col in df_bahan.columns]
+                    dfs_horizontal.append(df_bahan)
             
-                # Tambahkan suffix .1, .2 dst khusus untuk tampilan
-                suffix = f".{idx}" if idx > 0 else ""
-                df_bahan.columns = [f"{col}{suffix}" for col in df_bahan.columns]
+                if dfs_horizontal:
+                    df_preview = reduce(lambda left, right: pd.concat([left, right], axis=1), dfs_horizontal)
+                    st.dataframe(df_preview)
+                else:
+                    st.info("Tidak ada data kuantiti yang bisa ditampilkan.")
             
-                dfs_horizontal.append(df_bahan)
+                # Export ke Excel sesuai template
+                def export_kuantiti_excel(df_stacked):
+                    import openpyxl
+                    from openpyxl.styles import Alignment
+                    from openpyxl.utils.dataframe import dataframe_to_rows
+                    output = io.BytesIO()
+                    wb = openpyxl.Workbook()
+                    ws = wb.active
+                    ws.title = "Rekap Per Bahan"
             
-            if dfs_horizontal:
-                df_preview_horizontal = reduce(lambda left, right: pd.concat([left, right], axis=1), dfs_horizontal)
-                st.dataframe(df_preview_horizontal)
-            else:
-                st.info("Tidak ada data yang dapat ditampilkan.")
-
-            excel_merged_blocks = to_excel_merged_blocks(df_hasil)
-            st.download_button(
-                label="📥 Download Rekap Blok Tiap Bahan (Header Merged)",
-                data=excel_merged_blocks,
-                file_name="rekap_per_bahan_merged.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-
+                    bahan_unik = df_stacked["Nama Bahan"].dropna().unique()
+                    col_start = 1
+            
+                    for bahan in bahan_unik:
+                        df_bahan = df_stacked[df_stacked["Nama Bahan"] == bahan].copy().reset_index(drop=True)
+                        cols = ["Nomor Batch", "Nama Bahan", "Kuantiti Terpakai", "Kuantiti Rusak", "Label QC"]
+                        df_bahan = df_bahan[cols]
+            
+                        for r_idx, row in enumerate(dataframe_to_rows(df_bahan, index=False, header=False), start=3):
+                            for c_idx, value in enumerate(row, start=col_start):
+                                ws.cell(row=r_idx, column=c_idx, value=value)
+            
+                        header = ["Nomor Batch", "Nama Bahan", "Terpakai", "Rusak", "Label QC"]
+                        for i, h in enumerate(header):
+                            col = col_start + i
+                            if h in ["Terpakai", "Rusak"]:
+                                continue  # ditangani di merge bawah
+                            ws.merge_cells(start_row=1, start_column=col, end_row=2, end_column=col)
+                            ws.cell(row=1, column=col, value=h)
+                            ws.cell(row=1, column=col).alignment = Alignment(horizontal="center", vertical="center")
+            
+                        # Merge Kuantiti
+                        ws.merge_cells(start_row=1, start_column=col_start+2, end_row=1, end_column=col_start+3)
+                        ws.cell(row=1, column=col_start+2, value="Kuantiti")
+                        ws.cell(row=1, column=col_start+2).alignment = Alignment(horizontal="center")
+            
+                        ws.cell(row=2, column=col_start+2, value="Terpakai").alignment = Alignment(horizontal="center")
+                        ws.cell(row=2, column=col_start+3, value="Rusak").alignment = Alignment(horizontal="center")
+            
+                        col_start += len(header)
+            
+                    wb.save(output)
+                    output.seek(0)
+                    return output
+            
+                excel_kuantiti = export_kuantiti_excel(df_stacked)
+                st.download_button(
+                    label="📥 Download Rekap Kuantiti Excel (Template Format)",
+                    data=excel_kuantiti,
+                    file_name="rekap_kuantiti_per_bahan.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
 
 
         except Exception as e:
