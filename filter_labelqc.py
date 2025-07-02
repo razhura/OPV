@@ -378,11 +378,9 @@ def filter_labelqc():
                         "Nama Bahan Formula": bahan if idx == group.index[0] else "",
                         "Kuantiti: Terpakai": row["Kuantiti: Terpakai"],
                         "Kuantiti: Rusak": row["Kuantiti: Rusak"],
-                        "Label QC": row["Label QC"],
-                        "Subtotal": ""
+                        "Label QC": row["Label QC"]
                     })
             
-                # Tampilkan subtotal hanya kalau lebih dari 1 penimbangan
                 if len(group) > 1:
                     total_terpakai = group["Angka Terpakai"].sum()
                     total_rusak = group["Angka Rusak"].sum()
@@ -395,8 +393,7 @@ def filter_labelqc():
                         "Nama Bahan Formula": "",
                         "Kuantiti: Terpakai": total_terpakai_str,
                         "Kuantiti: Rusak": total_rusak_str,
-                        "Label QC": "",
-                        "Subtotal": "TOTAL"
+                        "Label QC": ""
                     })
 
             
