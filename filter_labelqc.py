@@ -9,7 +9,7 @@ import os
 
 
 def filter_labelqc():
-    st.title("📤 UPLOAD HASIL JADI DARI CPP BAHAN")
+    st.title("📤 UPLOAD HASIL JADI DARI CPP BAHAN.")
     uploaded_file = st.file_uploader("Upload file Excel", type=["xlsx", "csv"])
 
     if uploaded_file is not None:
