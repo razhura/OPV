@@ -170,6 +170,40 @@ def filter_labelqc():
                     output.seek(0)
                     return output
 
+                # Fungsi download excel kuantiti
+                def to_excel_summary_merged(df):
+                    from openpyxl.styles import Alignment
+                    from openpyxl.utils import get_column_letter
+                    from openpyxl import Workbook
+                    import openpyxl
+                
+                    output = io.BytesIO()
+                    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                        df.to_excel(writer, index=False, sheet_name="Rekap Kuantiti", startrow=1)
+                        wb = writer.book
+                        ws = writer.sheets["Rekap Kuantiti"]
+                
+                        # Mapping kolom ke indeks
+                        col_map = {col: i+1 for i, col in enumerate(df.columns)}
+                        terpakai_idx = col_map["Kuantiti: Terpakai"]
+                        rusak_idx = col_map["Kuantiti: Rusak"]
+                
+                        # Merge header baris pertama
+                        ws.merge_cells(
+                            start_row=1, start_column=terpakai_idx,
+                            end_row=1, end_column=rusak_idx
+                        )
+                        ws.cell(row=1, column=terpakai_idx).value = "Kuantiti"
+                        ws.cell(row=1, column=terpakai_idx).alignment = Alignment(horizontal="center")
+                
+                        # Header bawah
+                        for col, name in enumerate(df.columns, start=1):
+                            ws.cell(row=2, column=col).value = name
+                            ws.cell(row=2, column=col).alignment = Alignment(horizontal="center")
+                
+                    output.seek(0)
+                    return output
+                
                 
                 excel_all_grouped = to_excel(grouped_all_df)
                 st.download_button(
@@ -294,6 +328,73 @@ def filter_labelqc():
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
 
+            # Kuantiti
+            st.header("📦 Rekap Kuantiti per Nama Bahan per Batch")
+            kuantiti_data = []
+            for i in range(20):  # maksimal 20 pasangan
+                nama_col = f"Nama Bahan Formula{'' if i == 0 else f'.{i}'}"
+                terpakai_col = f"Kuantiti > Terpakai{'' if i == 0 else f'.{i}'}"
+                rusak_col = f"Kuantiti > Rusak{'' if i == 0 else f'.{i}'}"
+                label_col = f"Label QC{'' if i == 0 else f'.{i}'}"
+            
+                if nama_col in df_asli.columns and terpakai_col in df_asli.columns:
+                    for _, row in df_asli.iterrows():
+                        batch = row[batch_cols[0]] if batch_cols else ""
+                        nama = row[nama_col]
+                        terpakai = row[terpakai_col]
+                        rusak = row[rusak_col] if rusak_col in df_asli.columns else 0
+                        label = row[label_col] if label_col in df_asli.columns else ""
+            
+                        if pd.notna(nama) and pd.notna(terpakai):
+                            kuantiti_data.append({
+                                "Nomor Batch": batch,
+                                "Nama Bahan Formula": nama,
+                                "Kuantiti: Terpakai": terpakai,
+                                "Kuantiti: Rusak": rusak,
+                                "Label QC": label
+                            })
+            
+            df_kuantiti = pd.DataFrame(kuantiti_data)
+            
+            # Ambil angka dari kolom kuantiti
+            def extract_angka(x):
+                try:
+                    return float(str(x).split()[0])
+                except:
+                    return 0
+            
+            df_kuantiti["Angka Terpakai"] = df_kuantiti["Kuantiti: Terpakai"].apply(extract_angka)
+            df_kuantiti["Angka Rusak"] = df_kuantiti["Kuantiti: Rusak"].apply(extract_angka)
+            
+            hasil = []
+            grouped = df_kuantiti.groupby(["Nomor Batch", "Nama Bahan Formula"])
+            
+            for (batch, bahan), group in grouped:
+                for idx, row in group.iterrows():
+                    hasil.append({
+                        "Nomor Batch": batch if idx == group.index[0] else "",
+                        "Nama Bahan Formula": bahan if idx == group.index[0] else "",
+                        "Kuantiti: Terpakai": row["Kuantiti: Terpakai"],
+                        "Kuantiti: Rusak": row["Kuantiti: Rusak"],
+                        "Label QC": row["Label QC"],
+                        "Subtotal": ""
+                    })
+            
+                total_terpakai = group["Angka Terpakai"].sum()
+                total_rusak = group["Angka Rusak"].sum()
+            
+                hasil.append({
+                    "Nomor Batch": "",
+                    "Nama Bahan Formula": "",
+                    "Kuantiti: Terpakai": f"{int(total_terpakai)} GRAM",
+                    "Kuantiti: Rusak": f"{int(total_rusak)}",
+                    "Label QC": "",
+                    "Subtotal": "TOTAL"
+                })
+            
+            df_hasil = pd.DataFrame(hasil)
+            st.dataframe(df_hasil)
+        
         except Exception as e:
             st.error(f"❌ Terjadi kesalahan saat membaca file: {e}")
 
