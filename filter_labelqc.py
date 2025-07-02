@@ -416,12 +416,18 @@ def filter_labelqc():
             df_hasil = pd.DataFrame(hasil)
             #st.dataframe(df_hasil)
             from functools import reduce
+            
             bahan_unik = df_hasil["Nama Bahan Formula"].dropna().unique()
             dfs_horizontal = []
             
-            for bahan in bahan_unik:
+            for idx, bahan in enumerate(bahan_unik):
                 df_bahan = df_hasil[df_hasil["Nama Bahan Formula"] == bahan].copy()
                 df_bahan.reset_index(drop=True, inplace=True)
+            
+                # Tambahkan suffix .1, .2 dst khusus untuk tampilan
+                suffix = f".{idx}" if idx > 0 else ""
+                df_bahan.columns = [f"{col}{suffix}" for col in df_bahan.columns]
+            
                 dfs_horizontal.append(df_bahan)
             
             if dfs_horizontal:
@@ -430,8 +436,7 @@ def filter_labelqc():
                 st.dataframe(df_preview_horizontal)
             else:
                 st.info("Tidak ada data yang dapat ditampilkan.")
-        except Exception as e:
-            st.error(f"❌ Terjadi kesalahan saat membaca file: {e}")
+
 
 if __name__ == "__main__":
     filter_labelqc()
