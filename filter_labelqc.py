@@ -435,6 +435,15 @@ def filter_labelqc():
             else:
                 st.info("Tidak ada data yang dapat ditampilkan.")
 
+        excel_merged_blocks = to_excel_merged_blocks(df_hasil)
+        st.download_button(
+            label="📥 Download Rekap Blok Tiap Bahan (Header Merged)",
+            data=excel_merged_blocks,
+            file_name="rekap_per_bahan_merged.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+
 
         except Exception as e:
             st.error(f"❌ Terjadi kesalahan saat membaca file: {e}")
