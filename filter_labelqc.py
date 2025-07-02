@@ -415,27 +415,27 @@ def filter_labelqc():
             
             df_hasil = pd.DataFrame(hasil)
             #st.dataframe(df_hasil)
-            from functools import reduce
+            # from functools import reduce
             
-            bahan_unik = df_hasil["Nama Bahan Formula"].dropna().unique()
-            dfs_horizontal = []
+            # bahan_unik = df_hasil["Nama Bahan Formula"].dropna().unique()
+            # dfs_horizontal = []
             
-            for idx, bahan in enumerate(bahan_unik):
-                df_bahan = df_hasil[df_hasil["Nama Bahan Formula"] == bahan].copy()
-                df_bahan.reset_index(drop=True, inplace=True)
+            # for idx, bahan in enumerate(bahan_unik):
+            #     df_bahan = df_hasil[df_hasil["Nama Bahan Formula"] == bahan].copy()
+            #     df_bahan.reset_index(drop=True, inplace=True)
             
-                # Tambahkan suffix .1, .2 dst khusus untuk tampilan
-                suffix = f".{idx}" if idx > 0 else ""
-                df_bahan.columns = [f"{col}{suffix}" for col in df_bahan.columns]
+            #     # Tambahkan suffix .1, .2 dst khusus untuk tampilan
+            #     suffix = f".{idx}" if idx > 0 else ""
+            #     df_bahan.columns = [f"{col}{suffix}" for col in df_bahan.columns]
             
-                dfs_horizontal.append(df_bahan)
+            #     dfs_horizontal.append(df_bahan)
             
-            if dfs_horizontal:
-                df_preview_horizontal = reduce(lambda left, right: pd.concat([left, right], axis=1), dfs_horizontal)
-                st.subheader("👀 Preview Rekap Blok Tiap Bahan (Horizontal)")
-                st.dataframe(df_preview_horizontal)
-            else:
-                st.info("Tidak ada data yang dapat ditampilkan.")
+            # if dfs_horizontal:
+            #     df_preview_horizontal = reduce(lambda left, right: pd.concat([left, right], axis=1), dfs_horizontal)
+            #     st.subheader("👀 Preview Rekap Blok Tiap Bahan (Horizontal)")
+            #     st.dataframe(df_preview_horizontal)
+            # else:
+            #     st.info("Tidak ada data yang dapat ditampilkan.")
 
 
 if __name__ == "__main__":
