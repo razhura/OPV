@@ -226,8 +226,11 @@ if uploaded_file is not None:
     # Defaultnya fitur tersembunyi (None)
     feature_choice = st.radio(
         "Pilih fitur:",
-        ["Pilih Kolom", "Pilih Batch"]
+        [None, "Pilih Kolom", "Pilih Batch"],
+        format_func=lambda x: "Pilih fitur..." if x is None else x,
+        index=0  # Default tidak ada yang dipilih
     )
+    
 
     
     # === FITUR: PILIH KOLOM ===
@@ -243,6 +246,7 @@ if uploaded_file is not None:
                 default_columns = ["Nomor Batch"]
             
             selected_columns = st.multiselect("Pilih kolom untuk ditampilkan:", df.columns, default=default_columns)
+       
         with col2:
             # Tambahkan checkbox untuk fitur hapus data kosong
             enable_drop_empty = st.checkbox("🧹 Hapus data kosong", value=False)
