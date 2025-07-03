@@ -340,18 +340,32 @@ def tambahkan_baris_total_kuantiti(df):
 
                 total_terpakai = 0
                 total_rusak = 0
-                for r in same_rows.itertuples():
-                    val1 = getattr(r, terpakai_cols[i])
-                    val2 = getattr(r, rusak_cols[i])
+                # for r in same_rows.itertuples():
+                #     val1 = getattr(r, terpakai_cols[i])
+                #     val2 = getattr(r, rusak_cols[i])
 
+                #     def ambil_angka(v):
+                #         try:
+                #             return float(str(v).split()[0].replace(".", "").replace(",", "."))
+                #         except:
+                #             return 0
+
+                #     total_terpakai += ambil_angka(val1)
+                #     total_rusak += ambil_angka(val2)
+
+                for r_idx in same_rows.index:
+                    val1 = same_rows.at[r_idx, terpakai_cols[i]]
+                    val2 = same_rows.at[r_idx, rusak_cols[i]]
+                
                     def ambil_angka(v):
                         try:
                             return float(str(v).split()[0].replace(".", "").replace(",", "."))
                         except:
                             return 0
-
+                
                     total_terpakai += ambil_angka(val1)
                     total_rusak += ambil_angka(val2)
+
 
                 if len(same_rows) > 1:
                     total_row = pd.Series("", index=df.columns)
