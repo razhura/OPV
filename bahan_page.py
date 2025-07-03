@@ -539,7 +539,13 @@ def susun_sejajar(df_merged):
         # Kumpulkan baris satu batch
         grup_rows = [baris]
         i += 1
-        while i < len(df_merged) and (pd.isna(df_merged.at[i, "Nomor Batch"]) or df_merged.at[i, "Nomor Batch"] == ""):
+        while (
+            i < len(df_merged)
+            and (
+                pd.isna(df_merged.iloc[i]["Nomor Batch"])
+                or df_merged.iloc[i]["Nomor Batch"] == ""
+            )
+        ):
             grup_rows.append(df_merged.iloc[i])
             i += 1
 
