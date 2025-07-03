@@ -307,7 +307,7 @@ def get_unique_bahan_names(df):
     
     # Kembalikan sebagai list yang diurutkan
     return sorted(list(unique_names))
-    
+#############################################################
 # Tambahkan baris total kuantiti jika bahan muncul lebih dari 1x
 def tambahkan_baris_total_kuantiti(df):
     import pandas as pd
@@ -522,12 +522,10 @@ def merge_same_materials(df):
     
     return result_df
 
-#############################################################
 
 #############################################################
-
 def tampilkan_bahan():
-    st.title("Halaman CPP BAHAN")
+    st.title("Halaman CPP BAHAN.")
     st.write("Ini adalah tampilan khusus CPP BAHAN")
 
     uploaded_file = st.file_uploader("Upload file Excel", type=["xlsx"])
@@ -614,9 +612,9 @@ def tampilkan_bahan():
                 if st.button("🔄 Kelompokkan Bahan yang Sama"):
                     with st.spinner("Mengelompokkan data bahan yang sama..."):
                         merged_df = merge_same_materials(st.session_state.result_df.copy()) # Bekerja dengan salinan
-                        merged_df = tambahkan_baris_total_kuantiti(merged_df) # ← ⬅️ Tambahkan di sini 
+                        merged_df = tambahkan_baris_total_kuantiti(merged_df)  # ← ⬅️ Tambahkan di sini
                         st.session_state.result_df = merged_df # Update result_df dengan hasil merge
-                        
+
                         # Update unique bahan names dan batch numbers dari merged_df
                         unique_bahan_names = get_unique_bahan_names(merged_df)
                         st.session_state.unique_bahan_names = unique_bahan_names
@@ -650,10 +648,6 @@ def tampilkan_bahan():
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                             key="excel_merged_download" # Key yang sudah ada
                         )
-
-
-
-
 
                 # Tab untuk filter berdasarkan nomor batch atau nama bahan
                 tab1, tab2 = st.tabs(["🔍 Filter Berdasarkan Nomor Batch", "🔍 Filter Berdasarkan Nama Bahan"])
