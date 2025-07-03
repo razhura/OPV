@@ -578,25 +578,39 @@ def susun_sejajar(df_merged):
             hasil_rows.append(row)
 
         # Tambah baris total
-        row_total = pd.Series("", index=df_merged.columns)
         for idx in range(1, max_slot + 1):
             tp_vals = []
             rs_vals = []
+        
+            # TERPAKAI
             for val in df_grup[f"Kuantiti > Terpakai {idx}"].dropna():
-                val = str(val).replace(".", "").replace(",", ".").split()[0]
-                try: tp_vals.append(float(val))
-                except: pass
+                val_str = str(val).strip()
+                if not val_str:
+                    continue
+                try:
+                    val_angka = val_str.replace(".", "").replace(",", ".").split()[0]
+                    tp_vals.append(float(val_angka))
+                except:
+                    pass
+        
+            # RUSAK
             for val in df_grup[f"Kuantiti > Rusak {idx}"].dropna():
-                val = str(val).replace(".", "").replace(",", ".").split()[0]
-                try: rs_vals.append(float(val))
-                except: pass
-
+                val_str = str(val).strip()
+                if not val_str:
+                    continue
+                try:
+                    val_angka = val_str.replace(".", "").replace(",", ".").split()[0]
+                    rs_vals.append(float(val_angka))
+                except:
+                    pass
+        
             if tp_vals:
                 total_tp = sum(tp_vals)
                 row_total[f"Kuantiti > Terpakai {idx}"] = f"{int(total_tp):,}".replace(",", ".") + " GRAM"
             if rs_vals:
                 total_rs = sum(rs_vals)
                 row_total[f"Kuantiti > Rusak {idx}"] = f"{int(total_rs):,}".replace(",", ".") + " GRAM"
+
 
         hasil_rows.append(row_total)
 
