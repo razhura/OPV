@@ -729,23 +729,6 @@ def tampilkan_bahan():
                         )
 
                         # TABEL FORMAT SEJAJAR PER BAHAN
-                        df_sejajar = build_df_sejajar_per_bahan(merged_df)
-                        st.subheader("📊 Tabel Per Bahan Sejajar (Format Baru)")
-                        st.dataframe(df_sejajar)
-
-                        buffer_sejajar = io.BytesIO()
-                        with pd.ExcelWriter(buffer_sejajar, engine='openpyxl') as writer:
-                            df_sejajar.to_excel(writer, index=False, sheet_name='Per Bahan Sejajar')
-                        buffer_sejajar.seek(0)
-                        
-                        st.download_button(
-                            label="📥 Download Format Sejajar (Excel)",
-                            data=buffer_sejajar,
-                            file_name="data_per_bahan_sejajar.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            key="download_excel_sejajar"
-                        )
-
                         df_sejajar = susun_sejajar(merged_df)
                         st.subheader("📊 Data Tersusun Sejajar Per Bahan")
                         st.dataframe(df_sejajar)
