@@ -604,7 +604,7 @@ def susun_sejajar(df_merged):
 #############################################################
 
 def tampilkan_bahan():
-    st.title("Halaman CPP BAHAN.")
+    st.title("Halaman CPP BAHAN")
     st.write("Ini adalah tampilan khusus CPP BAHAN")
 
     uploaded_file = st.file_uploader("Upload file Excel", type=["xlsx"])
