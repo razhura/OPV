@@ -243,13 +243,19 @@ if uploaded_file is not None:
                 default_columns = ["Nomor Batch"]
             
             selected_columns = st.multiselect("Pilih kolom untuk ditampilkan:", df.columns, default=default_columns)
-
+        with col2:
+            # Tambahkan checkbox untuk fitur hapus data kosong
+            enable_drop_empty = st.checkbox("🧹 Hapus data kosong", value=False)
         
         # Tampilkan opsi untuk hapus data kosong jika diaktifkan
         if selected_columns:
             df_filtered = df[selected_columns]
         
-           
+            if enable_drop_empty:
+                rows_before = len(df_filtered)
+                df_filtered = df_filtered.dropna(subset=selected_columns)
+                rows_removed = rows_before - len(df_filtered)
+                st.success(f"✅ {rows_removed} baris dengan data kosong telah dihapus dari total {rows_before} baris.")           
       
             # Statistik numerik sebagai baris tambahan
             numeric_cols = df_filtered.select_dtypes(include=np.number).columns.tolist()
