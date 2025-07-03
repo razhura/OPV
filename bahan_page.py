@@ -523,8 +523,87 @@ def merge_same_materials(df):
     return result_df
 
 #############################################################
+def build_df_sejajar_per_bahan(df_merged):
+    import pandas as pd
+    from collections import defaultdict
 
+    nama_cols = [col for col in df_merged.columns if col.startswith("Nama Bahan Formula")]
+    all_batches = df_merged["Nomor Batch"].fillna(method="ffill").unique().tolist()
 
+    final_rows = []
+
+    for batch in all_batches:
+        # Ambil semua baris untuk batch ini
+        df_batch = df_merged[df_merged["Nomor Batch"].fillna(method="ffill") == batch].copy().reset_index(drop=True)
+        info_batch = {
+            "No. Order Produksi": df_batch["No. Order Produksi"].iloc[0],
+            "Jalur": df_batch["Jalur"].iloc[0],
+        }
+
+        # Kumpulkan data per bahan
+        bahan_map = defaultdict(list)
+        for i, row in df_batch.iterrows():
+            for idx, nama_col in enumerate(nama_cols):
+                nama = row.get(nama_col)
+                if pd.isna(nama) or str(nama).strip() == "":
+                    continue
+                kode = row.get(f"Kode Bahan {idx+1}", "")
+                tp = row.get(f"Kuantiti > Terpakai {idx+1}", "")
+                rs = row.get(f"Kuantiti > Rusak {idx+1}", "")
+                qc = row.get(f"Label QC {idx+1}", "")
+                bahan_map[nama].append({
+                    "Kode": kode,
+                    "Terpakai": tp,
+                    "Rusak": rs,
+                    "Label QC": qc,
+                })
+
+        max_rows = max(len(vals) for vals in bahan_map.values())
+
+        # Buat baris penimbangan
+        for i in range(max_rows):
+            row = {
+                "Nomor Batch": batch if i == 0 else "",
+                "No. Order Produksi": info_batch["No. Order Produksi"] if i == 0 else "",
+                "Jalur": info_batch["Jalur"] if i == 0 else ""
+            }
+
+            for nama_bahan, list_penimbangan in bahan_map.items():
+                if i < len(list_penimbangan):
+                    data = list_penimbangan[i]
+                    row[f"{nama_bahan} - Terpakai"] = data["Terpakai"]
+                    row[f"{nama_bahan} - Rusak"] = data["Rusak"]
+                    row[f"{nama_bahan} - Label QC"] = data["Label QC"]
+                else:
+                    row[f"{nama_bahan} - Terpakai"] = ""
+                    row[f"{nama_bahan} - Rusak"] = ""
+                    row[f"{nama_bahan} - Label QC"] = ""
+
+            final_rows.append(row)
+
+        # Tambahkan baris total
+        row_total = {
+            "Nomor Batch": "",
+            "No. Order Produksi": "",
+            "Jalur": ""
+        }
+        for nama_bahan, list_penimbangan in bahan_map.items():
+            total_tp = sum([
+                float(str(x["Terpakai"]).split()[0].replace(".", "").replace(",", ".")) 
+                for x in list_penimbangan if pd.notna(x["Terpakai"]) and str(x["Terpakai"]).strip() != ""
+            ])
+            total_rs = sum([
+                float(str(x["Rusak"]).split()[0].replace(".", "").replace(",", ".")) 
+                for x in list_penimbangan if pd.notna(x["Rusak"]) and str(x["Rusak"]).strip() != ""
+            ])
+            row_total[f"{nama_bahan} - Terpakai"] = f"{int(total_tp):,}".replace(",", ".") + " GRAM"
+            row_total[f"{nama_bahan} - Rusak"] = f"{int(total_rs):,}".replace(",", ".") + " GRAM"
+            row_total[f"{nama_bahan} - Label QC"] = ""
+        
+        final_rows.append(row_total)
+
+    df_hasil = pd.DataFrame(final_rows)
+    return df_hasil
 #############################################################
 
 def tampilkan_bahan():
@@ -651,6 +730,26 @@ def tampilkan_bahan():
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                             key="excel_merged_download" # Key yang sudah ada
                         )
+
+                        # TABEL FORMAT SEJAJAR PER BAHAN
+                        df_sejajar = build_df_sejajar_per_bahan(merged_df)
+                        st.subheader("📊 Tabel Per Bahan Sejajar (Format Baru)")
+                        st.dataframe(df_sejajar)
+
+                        buffer_sejajar = io.BytesIO()
+                        with pd.ExcelWriter(buffer_sejajar, engine='openpyxl') as writer:
+                            df_sejajar.to_excel(writer, index=False, sheet_name='Per Bahan Sejajar')
+                        buffer_sejajar.seek(0)
+                        
+                        st.download_button(
+                            label="📥 Download Format Sejajar (Excel)",
+                            data=buffer_sejajar,
+                            file_name="data_per_bahan_sejajar.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            key="download_excel_sejajar"
+                        )
+
+
 
                 # Tab untuk filter berdasarkan nomor batch atau nama bahan
                 tab1, tab2 = st.tabs(["🔍 Filter Berdasarkan Nomor Batch", "🔍 Filter Berdasarkan Nama Bahan"])
