@@ -338,7 +338,7 @@ def tambahkan_baris_total_kuantiti(df):
 
                 total_row = pd.Series("", index=df.columns)
                 total_row[terpakai_cols[nama_cols.index(idx)]] = f"{int(total_terpakai):,}".replace(",", ".") + " GRAM"
-                total_row[rusak_cols[nama_cols.index(idx)]] = f"{int(total_rusak):,}".replace(",", ".")
+                total_row[rusak_cols[nama_cols.index(idx)]] = f"{int(total_rusak):,}".replace(",", ".") + " GRAM"
                 total_rows.append(total_row)
         return total_rows
 
