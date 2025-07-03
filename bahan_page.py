@@ -522,6 +522,72 @@ def merge_same_materials(df):
     
     return result_df
 
+
+def ratakan_baris_per_bahan(df):
+    import pandas as pd
+
+    nama_bahan_cols = [col for col in df.columns if col.startswith("Nama Bahan Formula")]
+    bahan_per_pos = {col: [] for col in nama_bahan_cols}
+    hasil_rows = []
+
+    i = 0
+    while i < len(df):
+        baris = df.iloc[i]
+        batch = baris["Nomor Batch"]
+
+        # Deteksi grup batch
+        grup_rows = [baris]
+        i += 1
+        while i < len(df) and (pd.isna(df.at[i, "Nomor Batch"]) or df.at[i, "Nomor Batch"] == ""):
+            grup_rows.append(df.iloc[i])
+            i += 1
+
+        grup_df = pd.DataFrame(grup_rows).reset_index(drop=True)
+        max_len = 0
+        per_bahan = {}
+
+        # Hitung jumlah baris per bahan
+        for col in nama_bahan_cols:
+            bahan_list = grup_df[col].dropna().astype(str).tolist()
+            bahan_filtered = [b for b in bahan_list if b.strip() != ""]
+            per_bahan[col] = bahan_filtered
+            max_len = max(max_len, len(bahan_filtered))
+
+        # Buat baris per bahan disusun sejajar
+        for row_idx in range(max_len):
+            row = pd.Series("", index=df.columns)
+
+            if row_idx == 0:
+                row["Nomor Batch"] = grup_df.at[0, "Nomor Batch"]
+                row["No. Order Produksi"] = grup_df.at[0, "No. Order Produksi"]
+                row["Jalur"] = grup_df.at[0, "Jalur"]
+
+            for col in nama_bahan_cols:
+                idx = nama_bahan_cols.index(col)
+                kode_col = f"Kode Bahan {idx+1}"
+                tp_col = f"Kuantiti > Terpakai {idx+1}"
+                rs_col = f"Kuantiti > Rusak {idx+1}"
+                lot_col = f"No Lot Supplier {idx+1}"
+                qc_col = f"Label QC {idx+1}"
+
+                if row_idx < len(grup_df):
+                    val_nama = grup_df.at[row_idx, col] if col in grup_df.columns else ""
+                    val_kode = grup_df.at[row_idx, kode_col] if kode_col in grup_df.columns else ""
+                    val_tp = grup_df.at[row_idx, tp_col] if tp_col in grup_df.columns else ""
+                    val_rs = grup_df.at[row_idx, rs_col] if rs_col in grup_df.columns else ""
+                    val_lot = grup_df.at[row_idx, lot_col] if lot_col in grup_df.columns else ""
+                    val_qc = grup_df.at[row_idx, qc_col] if qc_col in grup_df.columns else ""
+
+                    row[col] = val_nama
+                    row[kode_col] = val_kode
+                    row[tp_col] = val_tp
+                    row[rs_col] = val_rs
+                    row[lot_col] = val_lot
+                    row[qc_col] = val_qc
+            hasil_rows.append(row)
+
+    return pd.DataFrame(hasil_rows)
+
 #############################################################
 def tampilkan_bahan():
     st.title("Halaman CPP BAHAN.")
@@ -611,7 +677,8 @@ def tampilkan_bahan():
                 if st.button("🔄 Kelompokkan Bahan yang Sama"):
                     with st.spinner("Mengelompokkan data bahan yang sama..."):
                         merged_df = merge_same_materials(st.session_state.result_df.copy()) # Bekerja dengan salinan
-                        merged_df = tambahkan_baris_total_kuantiti(merged_df)  # ← ⬅️ Tambahkan di sini
+                        merged_df = ratakan_baris_per_bahan(merged_df) # ← ⬅️ Tambahkan di sini
+                        merged_df = tambahkan_baris_total_kuantiti(merged_df)  
                         st.session_state.result_df = merged_df # Update result_df dengan hasil merge
                         
                         # Update unique bahan names dan batch numbers dari merged_df
