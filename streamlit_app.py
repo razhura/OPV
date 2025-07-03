@@ -226,9 +226,7 @@ if uploaded_file is not None:
     # Defaultnya fitur tersembunyi (None)
     feature_choice = st.radio(
         "Pilih fitur:",
-        [None, "Pilih Kolom", "Pilih Batch"],
-        format_func=lambda x: "Pilih fitur..." if x is None else x,
-        index=0  # Default tidak ada yang dipilih
+        ["Pilih Kolom", "Pilih Batch"]
     )
     
 
