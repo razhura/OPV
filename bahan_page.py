@@ -310,71 +310,64 @@ def get_unique_bahan_names(df):
 #############################################################
 # Tambahkan baris total kuantiti jika bahan muncul lebih dari 1x
 def tambahkan_baris_total_kuantiti(df):
-    final_rows = []
+    import pandas as pd
+
+    result_rows = []
+    current_batch = None
+    group_buffer = {}
+
     nama_cols = [col for col in df.columns if col.startswith("Nama Bahan Formula")]
     terpakai_cols = [col for col in df.columns if col.startswith("Kuantiti > Terpakai")]
     rusak_cols = [col for col in df.columns if col.startswith("Kuantiti > Rusak")]
 
-    for idx in df.index:
-        row = df.loc[idx]
-        final_rows.append(row)
+    def parse_angka(val):
+        try:
+            return float(str(val).split()[0].replace(".", "").replace(",", "."))
+        except:
+            return 0
 
-        for i, nama_col in enumerate(nama_cols):
-            nama_bahan = row[nama_col]
-            if pd.isna(nama_bahan) or str(nama_bahan).strip() == "":
+    def simpan_total_bahan():
+        total_rows = []
+        for idx in nama_cols:
+            for nama_bahan, kumpulan in group_buffer.get(idx, {}).items():
+                if len(kumpulan) <= 1:
+                    continue  # hanya jumlah jika lebih dari 1 baris
+
+                total_terpakai = sum(parse_angka(r[terpakai_cols[nama_cols.index(idx)]]) for r in kumpulan)
+                total_rusak = sum(parse_angka(r[rusak_cols[nama_cols.index(idx)]]) for r in kumpulan)
+
+                total_row = pd.Series("", index=df.columns)
+                total_row[terpakai_cols[nama_cols.index(idx)]] = f"{int(total_terpakai):,}".replace(",", ".") + " GRAM"
+                total_row[rusak_cols[nama_cols.index(idx)]] = f"{int(total_rusak):,}".replace(",", ".")
+                total_rows.append(total_row)
+        return total_rows
+
+    for i in range(len(df)):
+        row = df.iloc[i]
+        batch_val = row["Nomor Batch"]
+
+        # Jika batch baru (tidak kosong dan beda dari sebelumnya)
+        if pd.notna(batch_val) and str(batch_val).strip() != "":
+            if current_batch is not None:
+                result_rows.extend(simpan_total_bahan())  # tambahkan total dari batch sebelumnya
+                group_buffer = {}  # reset buffer
+
+            current_batch = batch_val  # batch baru
+
+        # Update group_buffer
+        for col_nama in nama_cols:
+            nama_val = row[col_nama]
+            if pd.isna(nama_val) or str(nama_val).strip() == "":
                 continue
 
-            is_last = False
-            if idx == df.index[-1]:
-                is_last = True
-            else:
-                next_row = df.loc[idx + 1]
-                next_nama = next_row[nama_col] if nama_col in next_row else ""
-                if pd.isna(next_nama) or str(nama_bahan).strip() != str(next_nama).strip():
-                    is_last = True
+            group_buffer.setdefault(col_nama, {}).setdefault(nama_val, []).append(row)
 
-            if is_last:
-                # Kumpulkan semua kuantiti dari bahan ini
-                same_bahan_rows = df.loc[:idx]
-                same_rows = same_bahan_rows[same_bahan_rows[nama_col] == nama_bahan]
+        result_rows.append(row)
 
-                total_terpakai = 0
-                total_rusak = 0
-                # for r in same_rows.itertuples():
-                #     val1 = getattr(r, terpakai_cols[i])
-                #     val2 = getattr(r, rusak_cols[i])
+    # Simpan total dari batch terakhir
+    result_rows.extend(simpan_total_bahan())
 
-                #     def ambil_angka(v):
-                #         try:
-                #             return float(str(v).split()[0].replace(".", "").replace(",", "."))
-                #         except:
-                #             return 0
-
-                #     total_terpakai += ambil_angka(val1)
-                #     total_rusak += ambil_angka(val2)
-
-                for r_idx in same_rows.index:
-                    val1 = same_rows.at[r_idx, terpakai_cols[i]]
-                    val2 = same_rows.at[r_idx, rusak_cols[i]]
-                
-                    def ambil_angka(v):
-                        try:
-                            return float(str(v).split()[0].replace(".", "").replace(",", "."))
-                        except:
-                            return 0
-                
-                    total_terpakai += ambil_angka(val1)
-                    total_rusak += ambil_angka(val2)
-
-
-                if len(same_rows) > 1:
-                    total_row = pd.Series("", index=df.columns)
-                    total_row[terpakai_cols[i]] = f"{int(total_terpakai):,}".replace(",", ".") + " GRAM"
-                    total_row[rusak_cols[i]] = f"{int(total_rusak):,}".replace(",", ".")
-                    final_rows.append(total_row)
-                break  # Cukup satu total untuk tiap bahan
-
-    return pd.DataFrame(final_rows)
+    return pd.DataFrame(result_rows)
 
 
 def merge_same_materials(df):
