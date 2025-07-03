@@ -693,6 +693,10 @@ def tampilkan_bahan():
                         merged_df = merge_same_materials(st.session_state.result_df.copy()) # Bekerja dengan salinan
                         merged_df = tambahkan_baris_total_kuantiti(merged_df) # ← ⬅️ Tambahkan di sini 
                         st.session_state.result_df = merged_df # Update result_df dengan hasil merge
+                        # TABEL FORMAT SEJAJAR PER BAHAN
+                        df_sejajar = susun_sejajar(merged_df)
+                        st.subheader("📊 Data Tersusun Sejajar Per Bahan")
+                        st.dataframe(df_sejajar)
                         
                         # Update unique bahan names dan batch numbers dari merged_df
                         unique_bahan_names = get_unique_bahan_names(merged_df)
@@ -728,10 +732,7 @@ def tampilkan_bahan():
                             key="excel_merged_download" # Key yang sudah ada
                         )
 
-                        # TABEL FORMAT SEJAJAR PER BAHAN
-                        df_sejajar = susun_sejajar(merged_df)
-                        st.subheader("📊 Data Tersusun Sejajar Per Bahan")
-                        st.dataframe(df_sejajar)
+
 
 
 
