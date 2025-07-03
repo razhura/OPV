@@ -178,7 +178,7 @@ def filter_labelqc():
                 )
 
             # Tampilkan semua data lengkap: Kode Bahan - Nomor Batch - Label QC
-            st.header("📋 Semua Kode Bahan dengan Batch dan Label QC.")
+            st.header("📋 Semua Kode Bahan dengan Batch dan Label QC")
             
             batch_col_primary = batch_cols[0] if batch_cols else "Nomor Batch"
             summary_by_kode = (
