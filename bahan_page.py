@@ -578,6 +578,8 @@ def susun_sejajar(df_merged):
             hasil_rows.append(row)
 
         # Tambah baris total
+        row_total = pd.Series("", index=df_merged.columns)
+        
         for idx in range(1, max_slot + 1):
             tp_vals = []
             rs_vals = []
