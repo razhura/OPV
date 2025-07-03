@@ -522,80 +522,6 @@ def merge_same_materials(df):
     
     return result_df
 
-
-def transformasi_baru_batch_ke_horizontal(df):
-    from collections import defaultdict
-
-    batch_list = df["Nomor Batch"].dropna().unique().tolist()
-    final_rows = []
-    kolom_awal = ["Nomor Batch", "No. Order Produksi", "Jalur"]
-
-    for batch in batch_list:
-        df_batch = df[df["Nomor Batch"] == batch].copy()
-        df_batch.reset_index(drop=True, inplace=True)
-
-        # Kelompokkan data per bahan
-        bahan_data = defaultdict(list)
-        for i in range(1, 100):  # asumsi maksimal 100 bahan
-            col_nama = f"Nama Bahan Formula {i}"
-            if col_nama not in df_batch.columns:
-                break
-            for j in range(len(df_batch)):
-                nama = df_batch.at[j, col_nama]
-                if pd.isna(nama) or str(nama).strip() == "":
-                    continue
-                bahan_data[nama].append({
-                    "Kode": df_batch.at[j, f"Kode Bahan {i}"],
-                    "Terpakai": df_batch.at[j, f"Kuantiti > Terpakai {i}"],
-                    "Rusak": df_batch.at[j, f"Kuantiti > Rusak {i}"],
-                    "Label QC": df_batch.at[j, f"Label QC {i}"]
-                })
-
-        max_baris = max(len(v) for v in bahan_data.values())
-
-        baris_batch = []
-        for baris_ke in range(max_baris + 1):  # tambah 1 untuk baris total
-            row = {}
-            if baris_ke == 0:
-                row["Nomor Batch"] = batch
-                row["No. Order Produksi"] = df_batch["No. Order Produksi"].iloc[0]
-                row["Jalur"] = df_batch["Jalur"].iloc[0]
-            else:
-                row["Nomor Batch"] = ""
-                row["No. Order Produksi"] = ""
-                row["Jalur"] = ""
-
-            for nama, isi in bahan_data.items():
-                prefix = f"{nama}"
-                if baris_ke < len(isi):
-                    row[f"{prefix} - Terpakai"] = isi[baris_ke]["Terpakai"]
-                    row[f"{prefix} - Rusak"] = isi[baris_ke]["Rusak"]
-                    row[f"{prefix} - Label QC"] = isi[baris_ke]["Label QC"]
-                elif baris_ke == len(isi):
-                    # baris total
-                    total_terpakai = sum([
-                        float(str(x["Terpakai"]).split()[0].replace(".", "").replace(",", ".")) 
-                        for x in isi if pd.notna(x["Terpakai"])
-                    ])
-                    total_rusak = sum([
-                        float(str(x["Rusak"]).split()[0].replace(".", "").replace(",", ".")) 
-                        for x in isi if pd.notna(x["Rusak"])
-                    ])
-                    row[f"{prefix} - Terpakai"] = f"{int(total_terpakai):,}".replace(",", ".") + " GRAM"
-                    row[f"{prefix} - Rusak"] = f"{int(total_rusak):,}".replace(",", ".") + " GRAM"
-                    row[f"{prefix} - Label QC"] = ""
-                else:
-                    row[f"{prefix} - Terpakai"] = ""
-                    row[f"{prefix} - Rusak"] = ""
-                    row[f"{prefix} - Label QC"] = ""
-
-            baris_batch.append(row)
-        final_rows.extend(baris_batch)
-
-    df_hasil = pd.DataFrame(final_rows)
-    return df_hasil
-
-
 #############################################################
 def tampilkan_bahan():
     st.title("Halaman CPP BAHAN.")
@@ -687,23 +613,6 @@ def tampilkan_bahan():
                         merged_df = merge_same_materials(st.session_state.result_df.copy()) # Bekerja dengan salinan
                         merged_df = tambahkan_baris_total_kuantiti(merged_df)  # ← ⬅️ Tambahkan di sini
                         st.session_state.result_df = merged_df # Update result_df dengan hasil merge
-
-                        # Tambahkan tombol atau langsung preview transformasi horizontal
-                        df_baru = transformasi_baru_batch_ke_horizontal(merged_df)
-
-                        # Ekspor Excel untuk hasil transformasi horizontal per bahan
-                        buffer_new = io.BytesIO()
-                        with pd.ExcelWriter(buffer_new, engine='openpyxl') as writer:
-                            df_baru.to_excel(writer, index=False, sheet_name='Rata Per Bahan')
-                        buffer_new.seek(0)
-                        
-                        st.download_button(
-                            label="📥 Download Data Rata Per Bahan (Excel)",
-                            data=buffer_new,
-                            file_name="data_rata_per_bahan.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            key="download_excel_per_bahan_rata"
-                        )
                         
                         # Update unique bahan names dan batch numbers dari merged_df
                         unique_bahan_names = get_unique_bahan_names(merged_df)
