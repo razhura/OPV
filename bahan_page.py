@@ -307,7 +307,7 @@ def get_unique_bahan_names(df):
     
     # Kembalikan sebagai list yang diurutkan
     return sorted(list(unique_names))
-#############################################################
+    
 # Tambahkan baris total kuantiti jika bahan muncul lebih dari 1x
 def tambahkan_baris_total_kuantiti(df):
     import pandas as pd
@@ -522,7 +522,7 @@ def merge_same_materials(df):
     
     return result_df
 
-
+#############################################################
 def ratakan_baris_per_bahan(df):
     import pandas as pd
 
@@ -587,8 +587,8 @@ def ratakan_baris_per_bahan(df):
             hasil_rows.append(row)
 
     return pd.DataFrame(hasil_rows)
-
 #############################################################
+
 def tampilkan_bahan():
     st.title("Halaman CPP BAHAN.")
     st.write("Ini adalah tampilan khusus CPP BAHAN")
