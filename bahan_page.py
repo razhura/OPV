@@ -523,87 +523,84 @@ def merge_same_materials(df):
     return result_df
 
 #############################################################
-def build_df_sejajar_per_bahan(df_merged):
+def susun_sejajar(df_merged):
     import pandas as pd
-    from collections import defaultdict
 
-    nama_cols = [col for col in df_merged.columns if col.startswith("Nama Bahan Formula")]
-    all_batches = df_merged["Nomor Batch"].fillna(method="ffill").unique().tolist()
+    nama_bahan_cols = [col for col in df_merged.columns if col.startswith("Nama Bahan Formula")]
+    max_slot = len(nama_bahan_cols)
+    hasil_rows = []
 
-    final_rows = []
+    i = 0
+    while i < len(df_merged):
+        # Ambil baris batch pertama
+        baris = df_merged.iloc[i]
+        batch = baris["Nomor Batch"]
 
-    for batch in all_batches:
-        # Ambil semua baris untuk batch ini
-        df_batch = df_merged[df_merged["Nomor Batch"].fillna(method="ffill") == batch].copy().reset_index(drop=True)
-        info_batch = {
-            "No. Order Produksi": df_batch["No. Order Produksi"].iloc[0],
-            "Jalur": df_batch["Jalur"].iloc[0],
-        }
+        # Kumpulkan baris satu batch
+        grup_rows = [baris]
+        i += 1
+        while i < len(df_merged) and (pd.isna(df_merged.at[i, "Nomor Batch"]) or df_merged.at[i, "Nomor Batch"] == ""):
+            grup_rows.append(df_merged.iloc[i])
+            i += 1
 
-        # Kumpulkan data per bahan
-        bahan_map = defaultdict(list)
-        for i, row in df_batch.iterrows():
-            for idx, nama_col in enumerate(nama_cols):
-                nama = row.get(nama_col)
-                if pd.isna(nama) or str(nama).strip() == "":
-                    continue
-                kode = row.get(f"Kode Bahan {idx+1}", "")
-                tp = row.get(f"Kuantiti > Terpakai {idx+1}", "")
-                rs = row.get(f"Kuantiti > Rusak {idx+1}", "")
-                qc = row.get(f"Label QC {idx+1}", "")
-                bahan_map[nama].append({
-                    "Kode": kode,
-                    "Terpakai": tp,
-                    "Rusak": rs,
-                    "Label QC": qc,
-                })
+        df_grup = pd.DataFrame(grup_rows).reset_index(drop=True)
 
-        max_rows = max(len(vals) for vals in bahan_map.values())
+        # Hitung jumlah penimbangan per bahan
+        panjang_per_slot = []
+        for idx in range(1, max_slot + 1):
+            col = f"Nama Bahan Formula {idx}"
+            panjang = df_grup[col].dropna().astype(str).apply(lambda x: x.strip()).replace('', pd.NA).dropna().shape[0]
+            panjang_per_slot.append(panjang)
 
-        # Buat baris penimbangan
-        for i in range(max_rows):
-            row = {
-                "Nomor Batch": batch if i == 0 else "",
-                "No. Order Produksi": info_batch["No. Order Produksi"] if i == 0 else "",
-                "Jalur": info_batch["Jalur"] if i == 0 else ""
-            }
+        max_baris = max(panjang_per_slot)
 
-            for nama_bahan, list_penimbangan in bahan_map.items():
-                if i < len(list_penimbangan):
-                    data = list_penimbangan[i]
-                    row[f"{nama_bahan} - Terpakai"] = data["Terpakai"]
-                    row[f"{nama_bahan} - Rusak"] = data["Rusak"]
-                    row[f"{nama_bahan} - Label QC"] = data["Label QC"]
-                else:
-                    row[f"{nama_bahan} - Terpakai"] = ""
-                    row[f"{nama_bahan} - Rusak"] = ""
-                    row[f"{nama_bahan} - Label QC"] = ""
+        # Susun ulang tiap baris sejajar
+        for baris_ke in range(max_baris):
+            row = pd.Series("", index=df_merged.columns)
+            if baris_ke == 0:
+                row["Nomor Batch"] = df_grup.at[0, "Nomor Batch"]
+                row["No. Order Produksi"] = df_grup.at[0, "No. Order Produksi"]
+                row["Jalur"] = df_grup.at[0, "Jalur"]
 
-            final_rows.append(row)
+            for idx in range(1, max_slot + 1):
+                baris_isi = df_grup[
+                    df_grup[f"Nama Bahan Formula {idx}"].notna() &
+                    df_grup[f"Nama Bahan Formula {idx}"].astype(str).str.strip().ne("")
+                ]
+                if baris_ke < len(baris_isi):
+                    target = baris_isi.iloc[baris_ke]
+                    row[f"Nama Bahan Formula {idx}"] = target.get(f"Nama Bahan Formula {idx}", "")
+                    row[f"Kode Bahan {idx}"] = target.get(f"Kode Bahan {idx}", "")
+                    row[f"Kuantiti > Terpakai {idx}"] = target.get(f"Kuantiti > Terpakai {idx}", "")
+                    row[f"Kuantiti > Rusak {idx}"] = target.get(f"Kuantiti > Rusak {idx}", "")
+                    row[f"No Lot Supplier {idx}"] = target.get(f"No Lot Supplier {idx}", "")
+                    row[f"Label QC {idx}"] = target.get(f"Label QC {idx}", "")
+            hasil_rows.append(row)
 
-        # Tambahkan baris total
-        row_total = {
-            "Nomor Batch": "",
-            "No. Order Produksi": "",
-            "Jalur": ""
-        }
-        for nama_bahan, list_penimbangan in bahan_map.items():
-            total_tp = sum([
-                float(str(x["Terpakai"]).split()[0].replace(".", "").replace(",", ".")) 
-                for x in list_penimbangan if pd.notna(x["Terpakai"]) and str(x["Terpakai"]).strip() != ""
-            ])
-            total_rs = sum([
-                float(str(x["Rusak"]).split()[0].replace(".", "").replace(",", ".")) 
-                for x in list_penimbangan if pd.notna(x["Rusak"]) and str(x["Rusak"]).strip() != ""
-            ])
-            row_total[f"{nama_bahan} - Terpakai"] = f"{int(total_tp):,}".replace(",", ".") + " GRAM"
-            row_total[f"{nama_bahan} - Rusak"] = f"{int(total_rs):,}".replace(",", ".") + " GRAM"
-            row_total[f"{nama_bahan} - Label QC"] = ""
-        
-        final_rows.append(row_total)
+        # Tambah baris total
+        row_total = pd.Series("", index=df_merged.columns)
+        for idx in range(1, max_slot + 1):
+            tp_vals = []
+            rs_vals = []
+            for val in df_grup[f"Kuantiti > Terpakai {idx}"].dropna():
+                val = str(val).replace(".", "").replace(",", ".").split()[0]
+                try: tp_vals.append(float(val))
+                except: pass
+            for val in df_grup[f"Kuantiti > Rusak {idx}"].dropna():
+                val = str(val).replace(".", "").replace(",", ".").split()[0]
+                try: rs_vals.append(float(val))
+                except: pass
 
-    df_hasil = pd.DataFrame(final_rows)
-    return df_hasil
+            if tp_vals:
+                total_tp = sum(tp_vals)
+                row_total[f"Kuantiti > Terpakai {idx}"] = f"{int(total_tp):,}".replace(",", ".") + " GRAM"
+            if rs_vals:
+                total_rs = sum(rs_vals)
+                row_total[f"Kuantiti > Rusak {idx}"] = f"{int(total_rs):,}".replace(",", ".") + " GRAM"
+
+        hasil_rows.append(row_total)
+
+    return pd.DataFrame(hasil_rows)
 #############################################################
 
 def tampilkan_bahan():
@@ -748,6 +745,10 @@ def tampilkan_bahan():
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                             key="download_excel_sejajar"
                         )
+
+                        df_sejajar = susun_sejajar(merged_df)
+                        st.subheader("📊 Data Tersusun Sejajar Per Bahan")
+                        st.dataframe(df_sejajar)
 
 
 
