@@ -307,7 +307,7 @@ def get_unique_bahan_names(df):
     
     # Kembalikan sebagai list yang diurutkan
     return sorted(list(unique_names))
-    
+#############################################################
 # Tambahkan baris total kuantiti jika bahan muncul lebih dari 1x
 def tambahkan_baris_total_kuantiti(df):
     import pandas as pd
@@ -522,111 +522,10 @@ def merge_same_materials(df):
     
     return result_df
 
+
 #############################################################
-def susun_sejajar(df_merged):
-    import pandas as pd
-
-    nama_bahan_cols = [col for col in df_merged.columns if col.startswith("Nama Bahan Formula")]
-    max_slot = len(nama_bahan_cols)
-    hasil_rows = []
-
-    i = 0
-    while i < len(df_merged):
-        # Ambil baris batch pertama
-        baris = df_merged.iloc[i]
-        batch = baris["Nomor Batch"]
-
-        # Kumpulkan baris satu batch
-        grup_rows = [baris]
-        i += 1
-        while (
-            i < len(df_merged)
-            and (
-                pd.isna(df_merged.iloc[i]["Nomor Batch"])
-                or df_merged.iloc[i]["Nomor Batch"] == ""
-            )
-        ):
-            grup_rows.append(df_merged.iloc[i])
-            i += 1
-
-        df_grup = pd.DataFrame(grup_rows).reset_index(drop=True)
-
-        # Hitung jumlah penimbangan per bahan
-        panjang_per_slot = []
-        for idx in range(1, max_slot + 1):
-            col = f"Nama Bahan Formula {idx}"
-            panjang = df_grup[col].dropna().astype(str).apply(lambda x: x.strip()).replace('', pd.NA).dropna().shape[0]
-            panjang_per_slot.append(panjang)
-
-        max_baris = max(panjang_per_slot)
-
-        # Susun ulang tiap baris sejajar
-        for baris_ke in range(max_baris):
-            row = pd.Series("", index=df_merged.columns)
-            if baris_ke == 0:
-                row["Nomor Batch"] = df_grup.at[0, "Nomor Batch"]
-                row["No. Order Produksi"] = df_grup.at[0, "No. Order Produksi"]
-                row["Jalur"] = df_grup.at[0, "Jalur"]
-
-            for idx in range(1, max_slot + 1):
-                baris_isi = df_grup[
-                    df_grup[f"Nama Bahan Formula {idx}"].notna() &
-                    df_grup[f"Nama Bahan Formula {idx}"].astype(str).str.strip().ne("")
-                ]
-                if baris_ke < len(baris_isi):
-                    target = baris_isi.iloc[baris_ke]
-                    row[f"Nama Bahan Formula {idx}"] = target.get(f"Nama Bahan Formula {idx}", "")
-                    row[f"Kode Bahan {idx}"] = target.get(f"Kode Bahan {idx}", "")
-                    row[f"Kuantiti > Terpakai {idx}"] = target.get(f"Kuantiti > Terpakai {idx}", "")
-                    row[f"Kuantiti > Rusak {idx}"] = target.get(f"Kuantiti > Rusak {idx}", "")
-                    row[f"No Lot Supplier {idx}"] = target.get(f"No Lot Supplier {idx}", "")
-                    row[f"Label QC {idx}"] = target.get(f"Label QC {idx}", "")
-            hasil_rows.append(row)
-
-        # Tambah baris total
-        row_total = pd.Series("", index=df_merged.columns)
-        
-        for idx in range(1, max_slot + 1):
-            tp_vals = []
-            rs_vals = []
-        
-            # TERPAKAI
-            for val in df_grup[f"Kuantiti > Terpakai {idx}"].dropna():
-                val_str = str(val).strip()
-                if not val_str:
-                    continue
-                try:
-                    val_angka = val_str.replace(".", "").replace(",", ".").split()[0]
-                    tp_vals.append(float(val_angka))
-                except:
-                    pass
-        
-            # RUSAK
-            for val in df_grup[f"Kuantiti > Rusak {idx}"].dropna():
-                val_str = str(val).strip()
-                if not val_str:
-                    continue
-                try:
-                    val_angka = val_str.replace(".", "").replace(",", ".").split()[0]
-                    rs_vals.append(float(val_angka))
-                except:
-                    pass
-        
-            if tp_vals:
-                total_tp = sum(tp_vals)
-                row_total[f"Kuantiti > Terpakai {idx}"] = f"{int(total_tp):,}".replace(",", ".") + " GRAM"
-            if rs_vals:
-                total_rs = sum(rs_vals)
-                row_total[f"Kuantiti > Rusak {idx}"] = f"{int(total_rs):,}".replace(",", ".") + " GRAM"
-
-
-        hasil_rows.append(row_total)
-
-    return pd.DataFrame(hasil_rows)
-#############################################################
-
 def tampilkan_bahan():
-    st.title("Halaman CPP BAHAN")
+    st.title("Halaman CPP BAHAN.")
     st.write("Ini adalah tampilan khusus CPP BAHAN")
 
     uploaded_file = st.file_uploader("Upload file Excel", type=["xlsx"])
@@ -713,13 +612,9 @@ def tampilkan_bahan():
                 if st.button("🔄 Kelompokkan Bahan yang Sama"):
                     with st.spinner("Mengelompokkan data bahan yang sama..."):
                         merged_df = merge_same_materials(st.session_state.result_df.copy()) # Bekerja dengan salinan
-                        merged_df = tambahkan_baris_total_kuantiti(merged_df) # ← ⬅️ Tambahkan di sini 
+                        merged_df = tambahkan_baris_total_kuantiti(merged_df)  # ← ⬅️ Tambahkan di sini
                         st.session_state.result_df = merged_df # Update result_df dengan hasil merge
-                        # TABEL FORMAT SEJAJAR PER BAHAN
-                        df_sejajar = susun_sejajar(merged_df)
-                        st.subheader("📊 Data Tersusun Sejajar Per Bahan")
-                        st.dataframe(df_sejajar)
-                        
+
                         # Update unique bahan names dan batch numbers dari merged_df
                         unique_bahan_names = get_unique_bahan_names(merged_df)
                         st.session_state.unique_bahan_names = unique_bahan_names
@@ -753,10 +648,6 @@ def tampilkan_bahan():
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                             key="excel_merged_download" # Key yang sudah ada
                         )
-
-
-
-
 
                 # Tab untuk filter berdasarkan nomor batch atau nama bahan
                 tab1, tab2 = st.tabs(["🔍 Filter Berdasarkan Nomor Batch", "🔍 Filter Berdasarkan Nama Bahan"])
