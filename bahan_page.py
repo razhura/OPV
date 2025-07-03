@@ -308,6 +308,60 @@ def get_unique_bahan_names(df):
     # Kembalikan sebagai list yang diurutkan
     return sorted(list(unique_names))
 #############################################################
+# Tambahkan baris total kuantiti jika bahan muncul lebih dari 1x
+def tambahkan_baris_total_kuantiti(df):
+    final_rows = []
+    nama_cols = [col for col in df.columns if col.startswith("Nama Bahan Formula")]
+    terpakai_cols = [col for col in df.columns if col.startswith("Kuantiti > Terpakai")]
+    rusak_cols = [col for col in df.columns if col.startswith("Kuantiti > Rusak")]
+
+    for idx in df.index:
+        row = df.loc[idx]
+        final_rows.append(row)
+
+        for i, nama_col in enumerate(nama_cols):
+            nama_bahan = row[nama_col]
+            if pd.isna(nama_bahan) or str(nama_bahan).strip() == "":
+                continue
+
+            is_last = False
+            if idx == df.index[-1]:
+                is_last = True
+            else:
+                next_row = df.loc[idx + 1]
+                next_nama = next_row[nama_col] if nama_col in next_row else ""
+                if pd.isna(next_nama) or str(nama_bahan).strip() != str(next_nama).strip():
+                    is_last = True
+
+            if is_last:
+                # Kumpulkan semua kuantiti dari bahan ini
+                same_bahan_rows = df.loc[:idx]
+                same_rows = same_bahan_rows[same_bahan_rows[nama_col] == nama_bahan]
+
+                total_terpakai = 0
+                total_rusak = 0
+                for r in same_rows.itertuples():
+                    val1 = getattr(r, terpakai_cols[i])
+                    val2 = getattr(r, rusak_cols[i])
+
+                    def ambil_angka(v):
+                        try:
+                            return float(str(v).split()[0].replace(".", "").replace(",", "."))
+                        except:
+                            return 0
+
+                    total_terpakai += ambil_angka(val1)
+                    total_rusak += ambil_angka(val2)
+
+                if len(same_rows) > 1:
+                    total_row = pd.Series("", index=df.columns)
+                    total_row[terpakai_cols[i]] = f"{int(total_terpakai):,}".replace(",", ".") + " GRAM"
+                    total_row[rusak_cols[i]] = f"{int(total_rusak):,}".replace(",", ".")
+                    final_rows.append(total_row)
+                break  # Cukup satu total untuk tiap bahan
+
+    return pd.DataFrame(final_rows)
+
 
 def merge_same_materials(df):
     """
@@ -551,6 +605,7 @@ def tampilkan_bahan():
                 if st.button("🔄 Kelompokkan Bahan yang Sama"):
                     with st.spinner("Mengelompokkan data bahan yang sama..."):
                         merged_df = merge_same_materials(st.session_state.result_df.copy()) # Bekerja dengan salinan
+                        merged_df = tambahkan_baris_total_kuantiti(merged_df)  # ← ⬅️ Tambahkan di sini
                         st.session_state.result_df = merged_df # Update result_df dengan hasil merge
 
                         # Update unique bahan names dan batch numbers dari merged_df
