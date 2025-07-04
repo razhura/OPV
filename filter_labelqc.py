@@ -345,6 +345,36 @@ def kuantiti():
             st.success("✅ File berhasil dimuat dan dibersihkan.")
             st.subheader("🧾 Preview Data Kuantiti (Kolom Tertentu Dihapus)")
             st.dataframe(df_cleaned)
+            # Fungsi export Excel dari DataFrame
+            def to_excel_download(df):
+                from openpyxl import Workbook
+                from openpyxl.utils.dataframe import dataframe_to_rows
+                from openpyxl.styles import Alignment
+
+                output = io.BytesIO()
+                wb = Workbook()
+                ws = wb.active
+                ws.title = "Data Rapi"
+
+                for r in dataframe_to_rows(df, index=False, header=True):
+                    ws.append(r)
+
+                for row in ws.iter_rows():
+                    for cell in row:
+                        cell.alignment = Alignment(vertical="center")
+
+                wb.save(output)
+                output.seek(0)
+                return output
+
+            # Tombol download Excel hasil rapihan
+            st.download_button(
+                label="📥 Download Excel Hasil Rapihan",
+                data=to_excel_download(df_cleaned),
+                file_name="data_kuantiti_rapi.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+
 
             # Fitur Pilih Bahan
             # === Ambil semua kolom "Nama Bahan Formula" ===
