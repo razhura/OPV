@@ -314,6 +314,44 @@ def kuantiti():
             st.subheader("🧾 Preview Data Kuantiti (Kolom Tertentu Dihapus)")
             st.dataframe(df_cleaned)
 
+            # Fitur Pilih Bahan
+            # === Ambil semua kolom yang mengandung "Nama Bahan Formula" ===
+            bahan_cols = [col for col in df_cleaned.columns if col.startswith("Nama Bahan Formula")]
+
+            # Ambil semua nama bahan unik dari seluruh kolom bahan
+            semua_bahan = set()
+            for col in bahan_cols:
+                semua_bahan.update(df_cleaned[col].dropna().astype(str).str.strip().unique())
+
+            semua_bahan = sorted(list(semua_bahan))
+
+            # Multiselect untuk pilih bahan
+            selected_bahan_list = st.multiselect("🔍 Pilih Bahan yang Ingin Ditampilkan:", semua_bahan)
+
+            if selected_bahan_list:
+                kolom_terkait = set()
+
+                for col in bahan_cols:
+                    # cek apakah kolom ini punya bahan yang dipilih
+                    matching = df_cleaned[col].astype(str).str.strip().isin(selected_bahan_list)
+                    if matching.any():
+                        suffix = col.replace("Nama Bahan Formula", "")
+                        kolom_terkait.update({
+                            f"Nama Bahan Formula{suffix}",
+                            f"Kode Bahan{suffix}",
+                            f"Kuantiti > Terpakai{suffix}",
+                            f"Kuantiti > Rusak{suffix}",
+                            f"Label QC{suffix}",
+                        })
+
+                kolom_terkait = ["Nomor Batch"] + [col for col in sorted(kolom_terkait) if col in df_cleaned.columns]
+
+                st.subheader("📋 Data untuk Bahan Terpilih")
+                st.dataframe(df_cleaned[kolom_terkait])
+            else:
+                st.info("Pilih minimal satu bahan untuk menampilkan data.")
+
+
         except Exception as e:
             st.error(f"❌ Gagal membaca atau memproses file: {e}")
             
