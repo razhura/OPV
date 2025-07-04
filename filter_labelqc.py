@@ -310,15 +310,15 @@ def rapikan(df: pd.DataFrame) -> pd.DataFrame:
         blok = df.iloc[start:end].reset_index(drop=True)
 
         n_rows = len(blok)
-        kolom_bahan = [col for col in blok.columns if col != "Nomor Batch"]
         blok_baru = pd.DataFrame(columns=blok.columns)
 
         for col in blok.columns:
             if col == "Nomor Batch":
                 isi = [blok.at[0, col]] + ["" for _ in range(n_rows - 1)]
             else:
-                data_isi = blok[col].dropna().tolist()
-                isi = data_isi + [None] * (n_rows - len(data_isi))
+                data_isi = blok[col].dropna().astype(str).str.strip()
+                data_isi = data_isi[data_isi != ""]
+                isi = data_isi.tolist() + [None] * (n_rows - len(data_isi))
 
             blok_baru[col] = isi
 
@@ -326,8 +326,11 @@ def rapikan(df: pd.DataFrame) -> pd.DataFrame:
 
     df_bersih = pd.concat(hasil, ignore_index=True)
 
-    # 🔥 Bersihkan baris yang seluruhnya kosong (NaN semua)
-    df_bersih = df_bersih.dropna(how="all")
+    # 🧹 Bersihkan baris yang semua kolomnya kosong atau isinya "" / "nan"
+    def benar_bener_kosong(row):
+        return all(str(x).strip().lower() in ["", "nan"] for x in row)
+
+    df_bersih = df_bersih[~df_bersih.apply(benar_bener_kosong, axis=1)]
 
     return df_bersih
 
