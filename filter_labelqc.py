@@ -298,9 +298,10 @@ def filter_labelqc():
 
 def tampilkan_filter_labelqc():
     # st.title("Filter Data CPP Bahan")
-    st.write("Silakan pilih jenis pengujian:")
+    st.write("Ini adalah tampilan halaman Filter Data CPP Bahan")
 
     selected_option = st.radio(
+        "Pilih jenis pengujian:",
         ["Filter Label QC", "Kuantiti"], 
         horizontal=True, 
         key="filter_qc_selection"  # <- pastikan key-nya unik
