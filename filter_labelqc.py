@@ -314,7 +314,7 @@ def kuantiti():
             st.subheader("🧾 Preview Data Kuantiti (Kolom Tertentu Dihapus)")
             st.dataframe(df_cleaned)
 
-             st.download_button(
+            st.download_button(
                         label="📥 Download Data",
                         data=df_cleaned,
                         file_name=tess,
