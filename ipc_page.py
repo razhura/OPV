@@ -216,6 +216,71 @@ def parse_keseragaman_bobot_excel(file):
         st.exception(e)
         return None
 
+def parse_keseragaman_bobot_effervescent_excel(file):
+    try:
+        df = pd.read_excel(file, header=None)
+        if df.empty:
+            st.error("File Keseragaman Bobot Effervescent kosong.")
+            return None
+
+        result_df = pd.DataFrame()
+
+        num_rows = df.shape[0]
+        current_row = 0
+        batch_counter = 1
+
+        while current_row + 4 < num_rows:
+            # Ambil 5 baris per batch
+            batch_rows = df.iloc[current_row:current_row+5]
+
+            # Ambil nama batch dari kolom pertama baris pertama
+            batch_name = str(batch_rows.iloc[0, 0]).strip()
+
+            # Kumpulkan semua data di 5 baris (selain kolom pertama)
+            all_values = []
+            for i in range(5):
+                row_values = batch_rows.iloc[i, 1:].tolist()
+                cleaned_values = [v for v in row_values if pd.notna(v)]
+                all_values.extend(cleaned_values)
+
+            data_length = len(all_values)
+            if data_length not in [40, 50]:
+                st.warning(f"Batch '{batch_name}' memiliki jumlah data {data_length} (bukan 40/50). Tetap diproses.")
+
+            # Buat dataframe untuk batch ini
+            data_ke = list(range(1, data_length + 1))
+            batch_column = [batch_name] * data_length
+
+            batch_df = pd.DataFrame({
+                "Data ke-": data_ke,
+                "Batch": batch_column,
+                "Bobot": all_values
+            })
+
+            # Append ke result_df
+            result_df = pd.concat([result_df, batch_df], ignore_index=True)
+
+            current_row += 5
+            batch_counter += 1
+
+        if result_df.empty:
+            st.error("Tidak ada data Keseragaman Bobot Effervescent valid.")
+            return None
+
+        # Tampilkan hasil di Streamlit
+        st.write("Data Keseragaman Bobot Effervescent Terstruktur (Transpose):")
+        styled_df = result_df.style.format(na_rep="")
+        set_common_table_properties(styled_df)
+        st.dataframe(styled_df)
+
+        return result_df
+
+    except Exception as e:
+        st.error(f"Gagal memproses file Keseragaman Bobot Effervescent: {e}")
+        st.exception(e)
+        return None
+
+
 def parse_tebal_excel(file):
     try:
         df = pd.read_excel(file, header=None)
@@ -419,7 +484,17 @@ def tampilkan_ipc():
             elif df_result is not None: st.info("Tidak ada data keseragaman bobot valid.")
         
         elif selected_option == "Keseragaman Bobot Effervescent":
-            st.info("Fitur parsing Keseragaman Bobot Effervescent belum diimplementasikan.")
+            df_result = parse_keseragaman_bobot_effervescent_excel(file_copy)
+            if df_result is not None and not df_result.empty:
+                excel_bytes_io = get_excel_for_download(df_result, index=False)
+                st.download_button(
+                    label=f"📥 Download Data Keseragaman Bobot Effervescent",
+                    data=excel_bytes_io,
+                    file_name="data_keseragaman_bobot_effervescent.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            elif df_result is not None:
+                st.info("Tidak ada data Keseragaman Bobot Effervescent valid.")
 
         elif selected_option == "Tebal":
             df_result = parse_tebal_excel(file_copy) 
