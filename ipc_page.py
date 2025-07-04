@@ -230,7 +230,7 @@ def parse_keseragaman_bobot_effervescent_excel(file):
 
         # Ambil hanya kolom yang diperlukan: Nomor Batch dan Data 1-10
         df_needed = df.iloc[:, [0] + list(range(4, df.shape[1]))].copy()
-        df_needed.columns = ['Nomor Batch'] + [f'Data{i}' for i in range(1, df_needed.shape[1])]
+        df_needed.columns = [f'Data{i}' for i in range(1, df_needed.shape[1])]
 
         # Group by Nomor Batch
         grouped = df_needed.groupby('Nomor Batch')
@@ -260,7 +260,7 @@ def parse_keseragaman_bobot_effervescent_excel(file):
             result_df[batch] = values
 
         # Tampilkan hasil di Streamlit
-        st.write("Data Keseragaman Bobot Effervescent Transpose (1 batch = 1 kolom):")
+        st.write("Data Keseragaman Bobot Effervescent Transpose:")
         styled_df = result_df.style.format(data_cell_formatter, na_rep="")
         set_common_table_properties(styled_df)
         st.dataframe(styled_df)
