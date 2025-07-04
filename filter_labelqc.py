@@ -326,12 +326,14 @@ def rapikan(df: pd.DataFrame) -> pd.DataFrame:
 
     df_bersih = pd.concat(hasil, ignore_index=True)
 
-    # 🧹 Hapus baris kosong total
-    df_bersih = df_bersih[~df_bersih.apply(
-        lambda row: row.astype(str).str.strip().replace("nan", "").eq("").all(), axis=1
-    )]
+    # 🔥 Hapus baris yang isinya kosong semua (baik NaN, string kosong, maupun "nan" string)
+    def row_is_empty(row):
+        return row.apply(lambda x: str(x).strip().lower() in ["", "nan"]).all()
+
+    df_bersih = df_bersih[~df_bersih.apply(row_is_empty, axis=1)]
 
     return df_bersih
+
 
 def kuantiti():
     st.subheader("Upload Data Kuantiti Bahan")
