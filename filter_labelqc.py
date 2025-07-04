@@ -301,7 +301,6 @@ def tampilkan_filter_labelqc():
     st.write("Silakan pilih jenis pengujian:")
 
     selected_option = st.radio(
-        "Pilih jenis pengujian:",
         ["Filter Label QC", "Kuantiti"], 
         horizontal=True, 
         key="filter_qc_selection"  # <- pastikan key-nya unik
