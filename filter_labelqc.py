@@ -300,7 +300,7 @@ def filter_labelqc():
 def rapikan(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     batch_indices = df[df["Nomor Batch"].notna()].index.tolist()
-    batch_indices.append(len(df))  # Tambahan biar batch terakhir ikut kebaca
+    batch_indices.append(len(df))
 
     hasil = []
 
@@ -324,9 +324,14 @@ def rapikan(df: pd.DataFrame) -> pd.DataFrame:
 
         hasil.append(blok_baru)
 
-    return pd.concat(hasil, ignore_index=True)
+    df_bersih = pd.concat(hasil, ignore_index=True)
 
+    # 🧹 Hapus baris kosong total
+    df_bersih = df_bersih[~df_bersih.apply(
+        lambda row: row.astype(str).str.strip().replace("nan", "").eq("").all(), axis=1
+    )]
 
+    return df_bersih
 
 def kuantiti():
     st.subheader("Upload Data Kuantiti Bahan")
@@ -341,12 +346,6 @@ def kuantiti():
             drop_cols += [col for col in df.columns if "No Lot Supplier" in col]
             df_cleaned = df.drop(columns=[col for col in drop_cols if col in df.columns])
             df_cleaned = rapikan(df_cleaned)
-            # ↓ Tambahin ini
-            # Hapus baris kosong total
-            df_cleaned = df_cleaned[~df_cleaned.apply(
-                lambda row: row.astype(str).str.strip().replace("nan", "").eq("").all(), axis=1
-            )]
-            
             st.success("✅ File berhasil dimuat dan dibersihkan.")
             st.subheader("🧾 Preview Data Kuantiti (Kolom Tertentu Dihapus)")
             st.dataframe(df_cleaned)
