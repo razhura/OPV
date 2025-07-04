@@ -297,27 +297,6 @@ def filter_labelqc():
             st.error(f"❌ Terjadi kesalahan saat membaca file: {e}")
 
 #KUANTITI
-def bersihkan_bolongan_per_batch(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    df["Nomor Batch"] = df["Nomor Batch"].ffill()  # isi batch yang kosong dengan batch sebelumnya
-
-    # Ambil semua kolom bahan (selain kolom batch)
-    kolom_non_batch = [col for col in df.columns if col != "Nomor Batch"]
-
-    # Grup berdasarkan Nomor Batch
-    batch_bersih = []
-
-    for batch, group in df.groupby("Nomor Batch"):
-        # Drop baris yang semua kolom bahan-nya kosong (selain kolom batch)
-        mask_kosong = group[kolom_non_batch].isna().all(axis=1)
-        group_clean = group[~mask_kosong]
-        batch_bersih.append(group_clean)
-
-    # Gabungkan semua batch yang sudah dibersihkan
-    df_bersih = pd.concat(batch_bersih, ignore_index=True)
-    return df_bersih
-
-
 def kuantiti():
     st.subheader("Upload Data Kuantiti Bahan")
     uploaded_file = st.file_uploader("Upload file Excel", type=["xlsx", "xls"], key="kuantiti_uploader")
@@ -330,7 +309,6 @@ def kuantiti():
             drop_cols = ["No. Order Produksi", "Jalur"]
             drop_cols += [col for col in df.columns if "No Lot Supplier" in col]
             df_cleaned = df.drop(columns=[col for col in drop_cols if col in df.columns])
-            df_cleaned = bersihkan_bolongan_per_batch(df_cleaned)
 
             st.success("✅ File berhasil dimuat dan dibersihkan.")
             st.subheader("🧾 Preview Data Kuantiti (Kolom Tertentu Dihapus)")
