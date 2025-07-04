@@ -296,73 +296,13 @@ def filter_labelqc():
         except Exception as e:
             st.error(f"❌ Terjadi kesalahan saat membaca file: {e}")
 
-#KUANTITI
-# def rapikan(df: pd.DataFrame) -> pd.DataFrame:
-#     df = df.copy()
-#     batch_indices = df[df["Nomor Batch"].notna()].index.tolist()
-#     batch_indices.append(len(df))
-
-#     hasil = []
-
-#     for i in range(len(batch_indices) - 1):
-#         start = batch_indices[i]
-#         end = batch_indices[i + 1]
-#         blok = df.iloc[start:end].reset_index(drop=True)
-
-#         n_rows = len(blok)
-#         blok_baru = pd.DataFrame(columns=blok.columns)
-
-#         for col in blok.columns:
-#             if col == "Nomor Batch":
-#                 isi = [blok.at[0, col]] + ["" for _ in range(n_rows - 1)]
-#             else:
-#                 data_isi = blok[col].dropna().astype(str).str.strip()
-#                 data_isi = data_isi[data_isi != ""]
-#                 isi = data_isi.tolist() + [None] * (n_rows - len(data_isi))
-
-#             blok_baru[col] = isi
-
-#         hasil.append(blok_baru)
-
-#     df_bersih = pd.concat(hasil, ignore_index=True)
-
-#     # === PEMBERSIHAN BARIS KOSONG YANG LEBIH EFEKTIF ===
-    
-#     # 1. Ganti string kosong dan whitespace dengan NaN (gunakan np.nan bukan pd.NA)
-#     df_bersih = df_bersih.replace(r'^\s*$', np.nan, regex=True)
-#     df_bersih = df_bersih.replace('', np.nan)
-    
-#     # 2. Fungsi untuk mengecek apakah baris memiliki data bermakna
-#     def has_meaningful_data(row):
-#         # Jika ada Nomor Batch, cek apakah ada data lain yang tidak kosong
-#         has_batch = pd.notna(row["Nomor Batch"]) and str(row["Nomor Batch"]).strip() not in ["", "nan", "None"]
-        
-#         # Cek kolom selain Nomor Batch
-#         other_cols = [col for col in row.index if col != "Nomor Batch"]
-#         has_other_data = any(
-#             pd.notna(row[col]) and str(row[col]).strip() not in ["", "nan", "None"] 
-#             for col in other_cols
-#         )
-        
-#         # Baris valid jika: (punya batch DAN punya data lain) ATAU (tidak punya batch tapi punya data lain)
-#         return (has_batch and has_other_data) or (not has_batch and has_other_data)
-    
-#     # 3. Filter hanya baris yang memiliki data bermakna
-#     df_final = df_bersih[df_bersih.apply(has_meaningful_data, axis=1)].reset_index(drop=True)
-    
-#     # 4. Pembersihan final: hapus baris yang benar-benar kosong
-#     df_final = df_final.dropna(how='all')
-    
-#     # 5. PENTING: Konversi semua pd.NA ke np.nan untuk kompatibilitas Excel
-#     df_final = df_final.fillna(np.nan)
-    
-#     return df_final
-def proses_kuantiti_dan_total(df: pd.DataFrame) -> pd.DataFrame:
+# KUANTITI
+def rapikan(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     batch_indices = df[df["Nomor Batch"].notna()].index.tolist()
     batch_indices.append(len(df))
 
-    hasil_akhir = []
+    hasil = []
 
     for i in range(len(batch_indices) - 1):
         start = batch_indices[i]
@@ -370,77 +310,53 @@ def proses_kuantiti_dan_total(df: pd.DataFrame) -> pd.DataFrame:
         blok = df.iloc[start:end].reset_index(drop=True)
 
         n_rows = len(blok)
-        kolom_bahan = [col for col in blok.columns if col != "Nomor Batch"]
-        blok_baru = pd.DataFrame(columns=df.columns.tolist() + ["Total Kuantiti"])
+        blok_baru = pd.DataFrame(columns=blok.columns)
 
-        # Shift cell up per kolom
-        for col in df.columns:
+        for col in blok.columns:
             if col == "Nomor Batch":
                 isi = [blok.at[0, col]] + ["" for _ in range(n_rows - 1)]
             else:
                 data_isi = blok[col].dropna().astype(str).str.strip()
-                data_isi = data_isi[data_isi.str.lower() != "nan"]
+                data_isi = data_isi[data_isi != ""]
                 isi = data_isi.tolist() + [None] * (n_rows - len(data_isi))
+
             blok_baru[col] = isi
 
-        # Inisialisasi kolom Total Kuantiti
-        blok_baru["Total Kuantiti"] = ""
+        hasil.append(blok_baru)
 
-        # Hitung total per label untuk setiap bahan
-        bahan_cols = [col for col in blok_baru.columns if col.startswith("Nama Bahan Formula")]
-        for col in bahan_cols:
-            suffix = col.replace("Nama Bahan Formula", "")
-            kode_col = f"Kode Bahan{suffix}"
-            qty_col = f"Kuantiti > Terpakai{suffix}"
-            label_col = f"Label QC{suffix}"
+    df_bersih = pd.concat(hasil, ignore_index=True)
 
-            if not all(k in blok_baru.columns for k in [qty_col, label_col]):
-                continue
-
-            # Ubah kuantiti ke float
-            blok_baru[qty_col] = (
-                blok_baru[qty_col]
-                .astype(str)
-                .str.replace("GRAM", "", case=False)
-                .str.replace(".", "", regex=False)
-                .str.replace(",", ".", regex=False)
-                .str.extract(r'([\d.]+)')
-                .astype(float)
-                .fillna(0)
-            )
-
-            # Kelompokkan berdasarkan Label QC
-            label_groups = blok_baru.groupby(label_col).groups
-            for label, indices in label_groups.items():
-                if label in ["", None, "nan"]:
-                    continue
-                total = blok_baru.loc[indices, qty_col].sum()
-                if len(indices) > 0:
-                    last_idx = max(indices)
-                    blok_baru.at[last_idx, "Total Kuantiti"] = f"{int(total):,}".replace(",", ".") + " GRAM"
-
-        # Hitung total semua bahan dalam batch
-        total_semua = 0
-        for col in blok_baru.columns:
-            if col.startswith("Kuantiti > Terpakai"):
-                total_semua += blok_baru[col].sum()
-
-        # Tambah baris total akhir batch
-        total_row = {col: "" for col in blok_baru.columns}
-        total_row["Nomor Batch"] = blok_baru["Nomor Batch"].iloc[0]
-        total_row["Total Kuantiti"] = f"Total Batch: {int(total_semua):,}".replace(",", ".") + " GRAM"
-        blok_baru = pd.concat([blok_baru, pd.DataFrame([total_row])], ignore_index=True)
-
-        hasil_akhir.append(blok_baru)
-
-    # Gabung semua batch
-    df_final = pd.concat(hasil_akhir, ignore_index=True)
-
-    # Hapus baris kosong (seluruh kolom kosong)
-    df_final = df_final[~df_final.apply(lambda row: row.astype(str).str.strip().eq("").all(), axis=1)]
-
+    # === PEMBERSIHAN BARIS KOSONG YANG LEBIH EFEKTIF ===
+    
+    # 1. Ganti string kosong dan whitespace dengan NaN (gunakan np.nan bukan pd.NA)
+    df_bersih = df_bersih.replace(r'^\s*$', np.nan, regex=True)
+    df_bersih = df_bersih.replace('', np.nan)
+    
+    # 2. Fungsi untuk mengecek apakah baris memiliki data bermakna
+    def has_meaningful_data(row):
+        # Jika ada Nomor Batch, cek apakah ada data lain yang tidak kosong
+        has_batch = pd.notna(row["Nomor Batch"]) and str(row["Nomor Batch"]).strip() not in ["", "nan", "None"]
+        
+        # Cek kolom selain Nomor Batch
+        other_cols = [col for col in row.index if col != "Nomor Batch"]
+        has_other_data = any(
+            pd.notna(row[col]) and str(row[col]).strip() not in ["", "nan", "None"] 
+            for col in other_cols
+        )
+        
+        # Baris valid jika: (punya batch DAN punya data lain) ATAU (tidak punya batch tapi punya data lain)
+        return (has_batch and has_other_data) or (not has_batch and has_other_data)
+    
+    # 3. Filter hanya baris yang memiliki data bermakna
+    df_final = df_bersih[df_bersih.apply(has_meaningful_data, axis=1)].reset_index(drop=True)
+    
+    # 4. Pembersihan final: hapus baris yang benar-benar kosong
+    df_final = df_final.dropna(how='all')
+    
+    # 5. PENTING: Konversi semua pd.NA ke np.nan untuk kompatibilitas Excel
+    df_final = df_final.fillna(np.nan)
+    
     return df_final
-
 
 def kuantiti():
     st.subheader("Upload Data Kuantiti Bahan")
@@ -456,7 +372,7 @@ def kuantiti():
             df_cleaned = df.drop(columns=[col for col in drop_cols if col in df.columns])
             
             # Rapikan data dengan pembersihan baris kosong yang lebih efektif
-            df_cleaned = proses_kuantiti_dan_total(df_cleaned)
+            df_cleaned = rapikan(df_cleaned)
             
             # === PEMBERSIHAN TAMBAHAN SETELAH RAPIKAN ===
             # Hapus baris yang mungkin masih kosong setelah proses rapikan
