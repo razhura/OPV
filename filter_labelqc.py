@@ -296,6 +296,28 @@ def filter_labelqc():
         except Exception as e:
             st.error(f"❌ Terjadi kesalahan saat membaca file: {e}")
 
+
+def kuantiti():
+    st.subheader("Upload Data Kuantiti Bahan")
+    uploaded_file = st.file_uploader("Upload file Excel", type=["xlsx", "xls"], key="kuantiti_uploader")
+
+    if uploaded_file is not None:
+        try:
+            df = pd.read_excel(uploaded_file)
+
+            # Hapus kolom yang tidak diperlukan
+            drop_cols = ["No. Order Produksi", "Jalur"]
+            drop_cols += [col for col in df.columns if "No Lot Supplier" in col]
+            df_cleaned = df.drop(columns=[col for col in drop_cols if col in df.columns])
+
+            st.success("✅ File berhasil dimuat dan dibersihkan.")
+            st.subheader("🧾 Preview Data Kuantiti (Kolom Tertentu Dihapus)")
+            st.dataframe(df_cleaned)
+
+        except Exception as e:
+            st.error(f"❌ Gagal membaca atau memproses file: {e}")
+            
+
 def tampilkan_filter_labelqc():
     # st.title("Filter Data CPP Bahan")
     st.write("Ini adalah tampilan halaman Filter Data CPP Bahan")
@@ -311,6 +333,7 @@ def tampilkan_filter_labelqc():
         filter_labelqc()
     elif selected_option == "Kuantiti":
         st.info("🔧 Fitur 'Kuantiti' masih dalam pengembangan.")
+        kuantiti()
 
 if __name__ == "__main__":
     tampilkan_filter_labelqc()
