@@ -342,8 +342,10 @@ def kuantiti():
             df_cleaned = df.drop(columns=[col for col in drop_cols if col in df.columns])
             df_cleaned = rapikan(df_cleaned)
             # ↓ Tambahin ini
-            df_cleaned = df_cleaned.dropna(how="all")
-            df_cleaned = df_cleaned[~df_cleaned.apply(lambda row: row.astype(str).str.strip().eq("").all(), axis=1)]
+            # Hapus baris kosong total
+            df_cleaned = df_cleaned[~df_cleaned.apply(
+                lambda row: row.astype(str).str.strip().replace("nan", "").eq("").all(), axis=1
+            )]
             
             st.success("✅ File berhasil dimuat dan dibersihkan.")
             st.subheader("🧾 Preview Data Kuantiti (Kolom Tertentu Dihapus)")
