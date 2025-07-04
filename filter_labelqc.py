@@ -297,6 +297,40 @@ def filter_labelqc():
             st.error(f"❌ Terjadi kesalahan saat membaca file: {e}")
 
 #KUANTITI
+def rapikan_excel_bahan(df):
+    df = df.copy()
+    df["Nomor Batch"] = df["Nomor Batch"].ffill()
+
+    bahan_blocks = []
+    for i in range(100):
+        suffix = "" if i == 0 else f".{i}"
+        base_cols = [
+            f"Nama Bahan Formula{suffix}",
+            f"Kode Bahan{suffix}",
+            f"Kuantiti > Terpakai{suffix}",
+            f"Kuantiti > Rusak{suffix}",
+            f"Label QC{suffix}"
+        ]
+        valid_cols = [col for col in base_cols if col in df.columns]
+        if valid_cols:
+            bahan_blocks.append((suffix, valid_cols))
+        else:
+            break
+
+    records = []
+    for _, row in df.iterrows():
+        batch = row["Nomor Batch"]
+        for suffix, col_list in bahan_blocks:
+            nama_col = f"Nama Bahan Formula{suffix}"
+            if pd.notna(row.get(nama_col, None)):
+                record = {"Nomor Batch": batch}
+                for col in col_list:
+                    clean_col = col.replace(suffix, "")
+                    record[clean_col] = row[col]
+                records.append(record)
+
+    return pd.DataFrame(records)
+
 def kuantiti():
     st.subheader("Upload Data Kuantiti Bahan")
     uploaded_file = st.file_uploader("Upload file Excel", type=["xlsx", "xls"], key="kuantiti_uploader")
@@ -309,6 +343,7 @@ def kuantiti():
             drop_cols = ["No. Order Produksi", "Jalur"]
             drop_cols += [col for col in df.columns if "No Lot Supplier" in col]
             df_cleaned = df.drop(columns=[col for col in drop_cols if col in df.columns])
+            df_cleaned = rapikan_excel_bahan(df_cleaned)
 
             st.success("✅ File berhasil dimuat dan dibersihkan.")
             st.subheader("🧾 Preview Data Kuantiti (Kolom Tertentu Dihapus)")
