@@ -371,13 +371,14 @@ def tampilkan_ipc():
     
     selected_option = st.radio(
         "Pilih jenis pengujian:",
-        ["Kekerasan", "Keseragaman Bobot", "Tebal", "Waktu Hancur dan Friability"],
+        ["Kekerasan", "Keseragaman Bobot", "Keseragaman Bobot Effervescent", "Tebal", "Waktu Hancur dan Friability"],
         horizontal=True, key="ipc_test_selection" 
     )
     
     template_info = {
         "Kekerasan": "Template Excel untuk pengujian kekerasan.",
         "Keseragaman Bobot": "Template Excel untuk pengujian keseragaman bobot.",
+        "Keseragaman Bobot Effervescent": "Template Excel untuk pengujian keseragaman bobot effervescent.",
         "Tebal": "Template Excel untuk pengujian tebal.",
         "Waktu Hancur dan Friability": "Template Excel untuk pengujian waktu hancur dan friability (kolom 'Nomor Batch' & 'Sample Data')."
     }
@@ -385,6 +386,7 @@ def tampilkan_ipc():
     template_links = {
         "Kekerasan": "https://drive.google.com/file/d/1fNFMrq6eiLsfRq-_9sM_lsAJcIvEdzfa/view?usp=drive_link",
         "Keseragaman Bobot": "https://drive.google.com/file/d/1Qf13SEbM34IHvOcJ72jgnuU7xoYuydMJ/view?usp=drive_link",
+        "Keseragaman Bobot Effervescent": "#",  # Ganti nanti jika sudah ada link template
         "Tebal": "https://drive.google.com/file/d/1US8atXnBTN6zBLLBPhojGKEcf7o3_Vd8/view?usp=drive_link",
         "Waktu Hancur dan Friability": "https://drive.google.com/file/d/1_L87a1pB8eK7JwaKHaQKqfhhXHTqtZHs/view?usp=drive_link"
     }
@@ -415,6 +417,10 @@ def tampilkan_ipc():
                 excel_bytes_io = get_excel_for_download(df_result, index=True)
                 st.download_button(label=f"📥 Download Data Keseragaman Bobot", data=excel_bytes_io, file_name="data_keseragaman_bobot.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
             elif df_result is not None: st.info("Tidak ada data keseragaman bobot valid.")
+        
+        elif selected_option == "Keseragaman Bobot Effervescent":
+            st.info("Fitur parsing Keseragaman Bobot Effervescent belum diimplementasikan.")
+
         elif selected_option == "Tebal":
             df_result = parse_tebal_excel(file_copy) 
             if df_result is not None and not df_result.empty:
