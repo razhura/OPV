@@ -317,7 +317,7 @@ def kuantiti():
             st.download_button(
                         label="📥 Download Data",
                         data=df_cleaned,
-                        file_name=tess,
+                        file_name="tess",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
 
