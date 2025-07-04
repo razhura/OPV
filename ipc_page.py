@@ -256,7 +256,7 @@ def parse_keseragaman_bobot_effervescent_excel(file):
 
         # Tampilkan hasil di Streamlit
         st.write("Data Keseragaman Bobot Effervescent Transpose (1 batch = 1 kolom):")
-        styled_df = result_df.style.format(na_rep="")
+        styled_df = result_df.style.format(data_cell_formatter, na_rep="")
         set_common_table_properties(styled_df)
         st.dataframe(styled_df)
 
