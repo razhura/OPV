@@ -297,7 +297,7 @@ def filter_labelqc():
             st.error(f"❌ Terjadi kesalahan saat membaca file: {e}")
 
 def tampilkan_filter_labelqc():
-    st.title("Filter Data CPP Bahan")
+    # st.title("Filter Data CPP Bahan")
     st.write("Silakan pilih jenis pengujian:")
 
     selected_option = st.radio(
