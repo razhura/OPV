@@ -506,7 +506,7 @@ def hitung_total_kuantiti(df: pd.DataFrame) -> pd.DataFrame:
                     "total kuantiti t": int(data["qt"].sum()),
                     "total kuantiti rusak": int(data["rusak"].sum())
                 }
-                data = data.append(total_semua, ignore_index=True)
+                data = pd.concat([data, pd.DataFrame([total_semua])], ignore_index=True)
                 hasil.append(data)
 
     # Gabung semua hasil
