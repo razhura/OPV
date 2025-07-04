@@ -54,6 +54,11 @@ STAT_ROW_LABELS = ['MIN', 'MAX', 'MEAN', 'SD', 'RSD (%)', # Dari calculate_stati
 def data_cell_formatter(val):
     """Formatter untuk sel data asli: tampilkan 'apa adanya'."""
     if pd.isna(val): return ""
+    if isinstance(val, float):
+        if val.is_integer():
+            return str(int(val))
+        else:
+            return str(val)
     # str(val) akan menampilkan 3.0 sebagai "3.0", 3.4 sebagai "3.4"
     return str(val)
 
