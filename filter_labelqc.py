@@ -299,29 +299,33 @@ def filter_labelqc():
 #KUANTITI
 def rapikan(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
-    df["Nomor Batch"] = df["Nomor Batch"].ffill()
+    batch_indices = df[df["Nomor Batch"].notna()].index.tolist()
+    batch_indices.append(len(df))  # Tambahan biar batch terakhir ikut kebaca
 
-    batch_rapih = []
-    kolom_bahan = [col for col in df.columns if col != "Nomor Batch"]
+    hasil = []
 
-    for batch, group in df.groupby("Nomor Batch"):
-        group_reset = group.reset_index(drop=True)
-        n_rows = len(group_reset)
-        new_block = pd.DataFrame(columns=group_reset.columns)
+    for i in range(len(batch_indices) - 1):
+        start = batch_indices[i]
+        end = batch_indices[i + 1]
+        blok = df.iloc[start:end].reset_index(drop=True)
 
-        # Shift cell up per kolom (kecuali 'Nomor Batch')
-        for col in group_reset.columns:
+        n_rows = len(blok)
+        kolom_bahan = [col for col in blok.columns if col != "Nomor Batch"]
+        blok_baru = pd.DataFrame(columns=blok.columns)
+
+        for col in blok.columns:
             if col == "Nomor Batch":
-                new_block[col] = [batch] + ["" for _ in range(n_rows - 1)]
+                isi = [blok.at[0, col]] + ["" for _ in range(n_rows - 1)]
             else:
-                data_nonnull = group_reset[col].dropna().tolist()
-                filled = data_nonnull + [None] * (n_rows - len(data_nonnull))
-                new_block[col] = filled
+                data_isi = blok[col].dropna().tolist()
+                isi = data_isi + [None] * (n_rows - len(data_isi))
 
-        batch_rapih.append(new_block)
+            blok_baru[col] = isi
 
-    df_final = pd.concat(batch_rapih, ignore_index=True)
-    return df_final
+        hasil.append(blok_baru)
+
+    return pd.concat(hasil, ignore_index=True)
+
 
 
 def kuantiti():
