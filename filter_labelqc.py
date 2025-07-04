@@ -326,13 +326,34 @@ def rapikan(df: pd.DataFrame) -> pd.DataFrame:
 
     df_bersih = pd.concat(hasil, ignore_index=True)
 
-    # 🧹 Bersihkan baris yang semua kolomnya kosong atau isinya "" / "nan"
-    def benar_bener_kosong(row):
-        return all(str(x).strip().lower() in ["", "nan"] for x in row)
-
-    df_bersih = df_bersih[~df_bersih.apply(benar_bener_kosong, axis=1)]
-
-    return df_bersih
+    # === PEMBERSIHAN BARIS KOSONG YANG LEBIH EFEKTIF ===
+    
+    # 1. Ganti string kosong dan whitespace dengan NaN
+    df_bersih = df_bersih.replace(r'^\s*$', pd.NA, regex=True)
+    df_bersih = df_bersih.replace('', pd.NA)
+    
+    # 2. Fungsi untuk mengecek apakah baris memiliki data bermakna
+    def has_meaningful_data(row):
+        # Jika ada Nomor Batch, cek apakah ada data lain yang tidak kosong
+        has_batch = pd.notna(row["Nomor Batch"]) and str(row["Nomor Batch"]).strip() not in ["", "nan", "None"]
+        
+        # Cek kolom selain Nomor Batch
+        other_cols = [col for col in row.index if col != "Nomor Batch"]
+        has_other_data = any(
+            pd.notna(row[col]) and str(row[col]).strip() not in ["", "nan", "None"] 
+            for col in other_cols
+        )
+        
+        # Baris valid jika: (punya batch DAN punya data lain) ATAU (tidak punya batch tapi punya data lain)
+        return (has_batch and has_other_data) or (not has_batch and has_other_data)
+    
+    # 3. Filter hanya baris yang memiliki data bermakna
+    df_final = df_bersih[df_bersih.apply(has_meaningful_data, axis=1)].reset_index(drop=True)
+    
+    # 4. Pembersihan final: hapus baris yang benar-benar kosong
+    df_final = df_final.dropna(how='all')
+    
+    return df_final
 
 
 def kuantiti():
@@ -347,10 +368,44 @@ def kuantiti():
             drop_cols = ["No. Order Produksi", "Jalur"]
             drop_cols += [col for col in df.columns if "No Lot Supplier" in col]
             df_cleaned = df.drop(columns=[col for col in drop_cols if col in df.columns])
+            
+            # Rapikan data dengan pembersihan baris kosong yang lebih efektif
             df_cleaned = rapikan(df_cleaned)
+            
+            # === PEMBERSIHAN TAMBAHAN SETELAH RAPIKAN ===
+            # Hapus baris yang mungkin masih kosong setelah proses rapikan
+            
+            # Method 1: Hapus baris yang semua kolomnya NaN
+            df_cleaned = df_cleaned.dropna(how='all')
+            
+            # Method 2: Hapus baris yang hanya berisi string kosong
+            def not_empty_row(row):
+                return any(
+                    pd.notna(val) and str(val).strip() not in ["", "nan", "None"] 
+                    for val in row
+                )
+            
+            df_cleaned = df_cleaned[df_cleaned.apply(not_empty_row, axis=1)].reset_index(drop=True)
+            
+            # Method 3: Pembersihan final berdasarkan kolom kunci
+            # Pastikan setiap baris memiliki setidaknya satu data yang bermakna
+            key_columns = ["Nomor Batch"] + [col for col in df_cleaned.columns if "Nama Bahan Formula" in col]
+            
+            def has_key_data(row):
+                return any(
+                    pd.notna(row[col]) and str(row[col]).strip() not in ["", "nan", "None"] 
+                    for col in key_columns if col in row.index
+                )
+            
+            df_cleaned = df_cleaned[df_cleaned.apply(has_key_data, axis=1)].reset_index(drop=True)
+            
             st.success("✅ File berhasil dimuat dan dibersihkan.")
-            st.subheader("🧾 Preview Data Kuantiti (Kolom Tertentu Dihapus)")
+            st.subheader("🧾 Preview Data Kuantiti (Baris Kosong Sudah Dihapus)")
             st.dataframe(df_cleaned)
+            
+            # Tampilkan informasi pembersihan
+            st.info(f"📊 Jumlah baris setelah pembersihan: {len(df_cleaned)}")
+            
             # Fungsi export Excel dari DataFrame
             def to_excel_download(df):
                 from openpyxl import Workbook
@@ -380,7 +435,6 @@ def kuantiti():
                 file_name="data_kuantiti_rapi.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
-
 
             # Fitur Pilih Bahan
             # === Ambil semua kolom "Nama Bahan Formula" ===
@@ -420,13 +474,27 @@ def kuantiti():
                             kolom_final.extend([k for k in kolom_bahan if k in df_cleaned.columns])
                             break  # stop setelah dapat yang pertama cocok
 
+                # Filter data dan hapus baris kosong lagi untuk hasil filter
+                filtered_df = df_cleaned[kolom_final]
+                
+                # Hapus baris yang semua kolomnya kosong (kecuali Nomor Batch)
+                def has_data_in_filtered(row):
+                    non_batch_cols = [col for col in kolom_final if col != "Nomor Batch"]
+                    return any(
+                        pd.notna(row[col]) and str(row[col]).strip() not in ["", "nan", "None"] 
+                        for col in non_batch_cols
+                    )
+                
+                filtered_df = filtered_df[filtered_df.apply(has_data_in_filtered, axis=1)].reset_index(drop=True)
+                
                 st.subheader("📋 Data Tersaring (Kelompok Kolom per Bahan)")
-                st.dataframe(df_cleaned[kolom_final])
+                st.dataframe(filtered_df)
             else:
                 st.info("Pilih minimal satu bahan untuk melihat data.")
 
         except Exception as e:
             st.error(f"❌ Gagal membaca atau memproses file: {e}")
+            st.error("Pastikan file Excel memiliki kolom 'Nomor Batch' dan struktur data yang sesuai.")
             
 
 def tampilkan_filter_labelqc():
