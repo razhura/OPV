@@ -579,7 +579,7 @@ def kuantiti():
                     df_cleaned[col] = df_cleaned[col].astype(str).replace('nan', '').replace('<NA>', '')
             
             st.success("✅ File berhasil dimuat dan dibersihkan.")
-            st.subheader("🧾 Preview Data Kuantiti (Baris Kosong Sudah Dihapus)")
+            st.subheader("Preview Data Kuantiti")
             st.dataframe(df_cleaned)
             
             # Tampilkan informasi pembersihan
@@ -632,7 +632,7 @@ def kuantiti():
 
             # Tombol download Excel hasil rapihan
             st.download_button(
-                label="📥 Download Excel Hasil Rapihan",
+                label="📥 Download Excel",
                 data=to_excel_download(df_cleaned),
                 file_name="data_kuantiti_rapi.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
