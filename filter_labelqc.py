@@ -296,5 +296,21 @@ def filter_labelqc():
         except Exception as e:
             st.error(f"❌ Terjadi kesalahan saat membaca file: {e}")
 
+def tampilkan_filter_labelqc():
+    st.title("Halaman Filter Label QC")
+
+    selected_option = st.radio(
+        "Pilih jenis pengujian:",
+        ["Filter Label QC", "Kuantiti"], 
+        horizontal=True, 
+        key="filter_selection"
+    )
+
+    if selected_option == "Filter Label QC":
+        # Panggil fungsi filter_labelqc yang sudah ada
+        filter_labelqc()
+    elif selected_option == "Kuantiti":
+        st.info("🔧 Fitur 'Kuantiti' masih dalam pengembangan.")
+        
 if __name__ == "__main__":
-    filter_labelqc()
+    tampilkan_filter_labelqc()
