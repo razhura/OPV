@@ -40,7 +40,7 @@ if menu == "CPP BAHAN":
     elif submenu == "Filter Label QC":
         st.title("🔍 FILTER LABEL QC")
         # Fungsi ekstraksi data batch, bisa dipisah atau gabung di tampilkan_bahan()
-        filter_labelqc()
+        tampilkan_filter_labelqc()
 
     st.stop()
 
