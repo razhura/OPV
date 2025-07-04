@@ -16,7 +16,7 @@ from utils import combine_duplicate_columns
 from header_parser import extract_multi_level_headers
 from ipc_page import tampilkan_ipc
 from bahan_page import tampilkan_bahan
-from filter_labelqc import filter_labelqc
+from filter_labelqc import tampilkan_filter_labelqc
 from produk_obat import tampilkan_obat
 from cqa_ekstrak import process_multiple_excel_files
 
