@@ -297,39 +297,32 @@ def filter_labelqc():
             st.error(f"❌ Terjadi kesalahan saat membaca file: {e}")
 
 #KUANTITI
-def rapikan_excel_bahan(df):
+def rapikan(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df["Nomor Batch"] = df["Nomor Batch"].ffill()
 
-    bahan_blocks = []
-    for i in range(100):
-        suffix = "" if i == 0 else f".{i}"
-        base_cols = [
-            f"Nama Bahan Formula{suffix}",
-            f"Kode Bahan{suffix}",
-            f"Kuantiti > Terpakai{suffix}",
-            f"Kuantiti > Rusak{suffix}",
-            f"Label QC{suffix}"
-        ]
-        valid_cols = [col for col in base_cols if col in df.columns]
-        if valid_cols:
-            bahan_blocks.append((suffix, valid_cols))
-        else:
-            break
+    batch_rapih = []
+    kolom_bahan = [col for col in df.columns if col != "Nomor Batch"]
 
-    records = []
-    for _, row in df.iterrows():
-        batch = row["Nomor Batch"]
-        for suffix, col_list in bahan_blocks:
-            nama_col = f"Nama Bahan Formula{suffix}"
-            if pd.notna(row.get(nama_col, None)):
-                record = {"Nomor Batch": batch}
-                for col in col_list:
-                    clean_col = col.replace(suffix, "")
-                    record[clean_col] = row[col]
-                records.append(record)
+    for batch, group in df.groupby("Nomor Batch"):
+        group_reset = group.reset_index(drop=True)
+        n_rows = len(group_reset)
+        new_block = pd.DataFrame(columns=group_reset.columns)
 
-    return pd.DataFrame(records)
+        # Shift cell up per kolom (kecuali 'Nomor Batch')
+        for col in group_reset.columns:
+            if col == "Nomor Batch":
+                new_block[col] = [batch] + ["" for _ in range(n_rows - 1)]
+            else:
+                data_nonnull = group_reset[col].dropna().tolist()
+                filled = data_nonnull + [None] * (n_rows - len(data_nonnull))
+                new_block[col] = filled
+
+        batch_rapih.append(new_block)
+
+    df_final = pd.concat(batch_rapih, ignore_index=True)
+    return df_final
+
 
 def kuantiti():
     st.subheader("Upload Data Kuantiti Bahan")
@@ -343,7 +336,7 @@ def kuantiti():
             drop_cols = ["No. Order Produksi", "Jalur"]
             drop_cols += [col for col in df.columns if "No Lot Supplier" in col]
             df_cleaned = df.drop(columns=[col for col in drop_cols if col in df.columns])
-            df_cleaned = rapikan_excel_bahan(df_cleaned)
+            df_cleaned = rapikan(df_cleaned)
 
             st.success("✅ File berhasil dimuat dan dibersihkan.")
             st.subheader("🧾 Preview Data Kuantiti (Kolom Tertentu Dihapus)")
