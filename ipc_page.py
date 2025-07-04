@@ -245,6 +245,9 @@ def parse_keseragaman_bobot_effervescent_excel(file):
         max_length = max(len(v) for v in batch_dict.values())
         result_df = pd.DataFrame()
 
+        # Tambahkan kolom "Data ke-"
+        result_df["Data Ke-"] = list(range(1, max_length + 1))
+        
         for batch, values in batch_dict.items():
             # Padding jika jumlah data kurang dari batch lain
             if len(values) < max_length:
