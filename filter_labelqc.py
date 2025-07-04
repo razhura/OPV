@@ -8,7 +8,7 @@ import os
 
 
 def filter_labelqc():
-    st.subheader("📤 UPLOAD HASIL JADI DARI CPP BAHAN")
+    st.subheader("Upload File Ekstra Data Batch CPP Bahan")
     uploaded_file = st.file_uploader("Upload file Excel", type=["xlsx", "csv"])
 
     if uploaded_file is not None:
