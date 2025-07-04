@@ -314,13 +314,6 @@ def kuantiti():
             st.subheader("🧾 Preview Data Kuantiti (Kolom Tertentu Dihapus)")
             st.dataframe(df_cleaned)
 
-            st.download_button(
-                        label="📥 Download Data",
-                        data=df_cleaned,
-                        file_name="tess",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-
             # Fitur Pilih Bahan
             # === Ambil semua kolom "Nama Bahan Formula" ===
             bahan_cols = [col for col in df_cleaned.columns if col.startswith("Nama Bahan Formula")]
