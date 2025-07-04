@@ -297,20 +297,21 @@ def filter_labelqc():
             st.error(f"❌ Terjadi kesalahan saat membaca file: {e}")
 
 def tampilkan_filter_labelqc():
-    st.title("Halaman Filter Label QC")
+    st.title("Filter Data CPP Bahan")
+    st.write("Silakan pilih jenis pengujian:")
 
     selected_option = st.radio(
         "Pilih jenis pengujian:",
         ["Filter Label QC", "Kuantiti"], 
         horizontal=True, 
-        key="filter_selection"
+        key="filter_qc_selection"  # <- pastikan key-nya unik
     )
 
     if selected_option == "Filter Label QC":
-        # Panggil fungsi filter_labelqc yang sudah ada
         filter_labelqc()
     elif selected_option == "Kuantiti":
         st.info("🔧 Fitur 'Kuantiti' masih dalam pengembangan.")
-        
+
 if __name__ == "__main__":
     tampilkan_filter_labelqc()
+
