@@ -259,6 +259,10 @@ def parse_keseragaman_bobot_effervescent_excel(file):
                 values.extend([np.nan] * (max_length - len(values)))
             result_df[batch] = values
 
+        # Pastikan kolom Nomor Batch tidak terbawa (safety)
+        if "Nomor Batch" in result_df.columns:
+            result_df = result_df.drop(columns=["Nomor Batch"])
+        
         # Tampilkan hasil di Streamlit
         st.write("Data Keseragaman Bobot Effervescent Transpose:")
         styled_df = result_df.style.format(data_cell_formatter, na_rep="")
