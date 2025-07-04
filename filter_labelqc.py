@@ -328,9 +328,9 @@ def rapikan(df: pd.DataFrame) -> pd.DataFrame:
 
     # === PEMBERSIHAN BARIS KOSONG YANG LEBIH EFEKTIF ===
     
-    # 1. Ganti string kosong dan whitespace dengan NaN
-    df_bersih = df_bersih.replace(r'^\s*$', pd.NA, regex=True)
-    df_bersih = df_bersih.replace('', pd.NA)
+    # 1. Ganti string kosong dan whitespace dengan NaN (gunakan np.nan bukan pd.NA)
+    df_bersih = df_bersih.replace(r'^\s*$', np.nan, regex=True)
+    df_bersih = df_bersih.replace('', np.nan)
     
     # 2. Fungsi untuk mengecek apakah baris memiliki data bermakna
     def has_meaningful_data(row):
@@ -352,6 +352,9 @@ def rapikan(df: pd.DataFrame) -> pd.DataFrame:
     
     # 4. Pembersihan final: hapus baris yang benar-benar kosong
     df_final = df_final.dropna(how='all')
+    
+    # 5. PENTING: Konversi semua pd.NA ke np.nan untuk kompatibilitas Excel
+    df_final = df_final.fillna(np.nan)
     
     return df_final
 
@@ -399,6 +402,15 @@ def kuantiti():
             
             df_cleaned = df_cleaned[df_cleaned.apply(has_key_data, axis=1)].reset_index(drop=True)
             
+            # === PERBAIKAN ERROR <NA>: Konversi semua nilai NA untuk kompatibilitas Excel ===
+            # Ganti semua pd.NA dengan np.nan atau string kosong
+            df_cleaned = df_cleaned.fillna("")  # Atau gunakan np.nan jika ingin tetap NaN
+            
+            # Pastikan tidak ada dtype object yang bermasalah
+            for col in df_cleaned.columns:
+                if df_cleaned[col].dtype == 'object':
+                    df_cleaned[col] = df_cleaned[col].astype(str).replace('nan', '').replace('<NA>', '')
+            
             st.success("✅ File berhasil dimuat dan dibersihkan.")
             st.subheader("🧾 Preview Data Kuantiti (Baris Kosong Sudah Dihapus)")
             st.dataframe(df_cleaned)
@@ -406,20 +418,43 @@ def kuantiti():
             # Tampilkan informasi pembersihan
             st.info(f"📊 Jumlah baris setelah pembersihan: {len(df_cleaned)}")
             
-            # Fungsi export Excel dari DataFrame
+            # === PERBAIKAN FUNGSI EXPORT EXCEL ===
             def to_excel_download(df):
                 from openpyxl import Workbook
                 from openpyxl.utils.dataframe import dataframe_to_rows
                 from openpyxl.styles import Alignment
+                
+                # Buat copy dataframe dan bersihkan untuk Excel
+                df_export = df.copy()
+                
+                # Konversi semua nilai yang bermasalah
+                df_export = df_export.fillna("")  # Ganti NaN dengan string kosong
+                
+                # Konversi semua kolom ke string dan bersihkan
+                for col in df_export.columns:
+                    df_export[col] = df_export[col].astype(str).replace('nan', '').replace('<NA>', '').replace('None', '')
 
                 output = io.BytesIO()
                 wb = Workbook()
                 ws = wb.active
                 ws.title = "Data Rapi"
 
-                for r in dataframe_to_rows(df, index=False, header=True):
-                    ws.append(r)
+                # Tulis header
+                headers = list(df_export.columns)
+                ws.append(headers)
+                
+                # Tulis data baris per baris
+                for _, row in df_export.iterrows():
+                    row_data = []
+                    for val in row:
+                        # Pastikan tidak ada nilai yang bermasalah
+                        if pd.isna(val) or str(val).strip() in ['nan', '<NA>', 'None']:
+                            row_data.append("")
+                        else:
+                            row_data.append(str(val))
+                    ws.append(row_data)
 
+                # Set alignment
                 for row in ws.iter_rows():
                     for cell in row:
                         cell.alignment = Alignment(vertical="center")
@@ -440,10 +475,13 @@ def kuantiti():
             # === Ambil semua kolom "Nama Bahan Formula" ===
             bahan_cols = [col for col in df_cleaned.columns if col.startswith("Nama Bahan Formula")]
 
-            # Ambil semua nama bahan unik
+            # Ambil semua nama bahan unik (dengan pembersihan tambahan)
             semua_bahan = set()
             for col in bahan_cols:
-                semua_bahan.update(df_cleaned[col].dropna().astype(str).str.strip().unique())
+                unique_vals = df_cleaned[col].dropna().astype(str).str.strip().unique()
+                # Filter nilai yang valid (bukan string kosong atau 'nan')
+                valid_vals = [val for val in unique_vals if val not in ['', 'nan', '<NA>', 'None']]
+                semua_bahan.update(valid_vals)
 
             semua_bahan = sorted(semua_bahan)
 
@@ -475,17 +513,20 @@ def kuantiti():
                             break  # stop setelah dapat yang pertama cocok
 
                 # Filter data dan hapus baris kosong lagi untuk hasil filter
-                filtered_df = df_cleaned[kolom_final]
+                filtered_df = df_cleaned[kolom_final].copy()
                 
                 # Hapus baris yang semua kolomnya kosong (kecuali Nomor Batch)
                 def has_data_in_filtered(row):
                     non_batch_cols = [col for col in kolom_final if col != "Nomor Batch"]
                     return any(
-                        pd.notna(row[col]) and str(row[col]).strip() not in ["", "nan", "None"] 
+                        pd.notna(row[col]) and str(row[col]).strip() not in ["", "nan", "None", "<NA>"] 
                         for col in non_batch_cols
                     )
                 
                 filtered_df = filtered_df[filtered_df.apply(has_data_in_filtered, axis=1)].reset_index(drop=True)
+                
+                # Bersihkan filtered_df untuk tampilan
+                filtered_df = filtered_df.fillna("")
                 
                 st.subheader("📋 Data Tersaring (Kelompok Kolom per Bahan)")
                 st.dataframe(filtered_df)
@@ -494,8 +535,10 @@ def kuantiti():
 
         except Exception as e:
             st.error(f"❌ Gagal membaca atau memproses file: {e}")
-            st.error("Pastikan file Excel memiliki kolom 'Nomor Batch' dan struktur data yang sesuai.")
-            
+            st.error("Detail error untuk debugging:")
+            st.error(f"Error type: {type(e)}")
+            import traceback
+            st.error(f"Traceback: {traceback.format_exc()}")
 
 def tampilkan_filter_labelqc():
     # st.title("Filter Data CPP Bahan")
