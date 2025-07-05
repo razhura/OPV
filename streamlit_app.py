@@ -16,7 +16,8 @@ from utils import combine_duplicate_columns
 from header_parser import extract_multi_level_headers
 from ipc_page import tampilkan_ipc
 from bahan_page import tampilkan_bahan
-from filter_labelqc import tampilkan_filter_labelqc
+# from filter_labelqc import tampilkan_filter_labelqc
+from filter_cpp_bahan import main
 from produk_obat import tampilkan_obat
 from cqa_ekstrak import process_multiple_excel_files
 
@@ -40,7 +41,7 @@ if menu == "CPP BAHAN":
     elif submenu == "Filter Data CPP Bahan":
         st.title("Filter Data CPP Bahan")
         # Fungsi ekstraksi data batch, bisa dipisah atau gabung di tampilkan_bahan()
-        tampilkan_filter_labelqc()
+        main()
 
     st.stop()
 
