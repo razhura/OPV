@@ -540,7 +540,6 @@ def kuantiti():
             
             # Rapikan data dengan pembersihan baris kosong yang lebih efektif
             df_cleaned = rapikan(df_cleaned)
-            df_cleaned = hitung_total_kuantiti(df_cleaned)
 
             # === PEMBERSIHAN TAMBAHAN SETELAH RAPIKAN ===
             # Hapus baris yang mungkin masih kosong setelah proses rapikan
