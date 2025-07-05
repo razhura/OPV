@@ -635,7 +635,7 @@ def hitung_total_kuantiti(df: pd.DataFrame) -> pd.DataFrame:
 
 def tampilkan_filter_labelqc():
     # st.title("Filter Data CPP Bahan")
-    st.write("Ini adalah tampilan halaman Filter Data CPP Bahan.")
+    st.write("Ini adalah tampilan halaman Filter Data CPP Bahan")
 
     selected_option = st.radio(
         "Pilih jenis pengujian:",
