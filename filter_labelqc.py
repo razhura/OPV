@@ -620,18 +620,6 @@ def hitung_total_kuantiti(df: pd.DataFrame) -> pd.DataFrame:
             "Batch", "Nama Bahan", "Kode Bahan", "Kuantiti Terpakai",
             "Kuantiti Rusak", "Label QC", "Total Kuantiti", "Total Kuantiti Rusak"
         ])
-    st.subheader("📊 Rekap Kuantiti per Bahan dan Label QC")
-    
-    df_summary = hitung_total_kuantiti(df_cleaned)
-    st.dataframe(df_summary)
-    
-    st.download_button(
-        "📥 Download Rekap Kuantiti",
-        to_excel_download(df_summary),
-        file_name="rekap_kuantiti_per_label.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-
 
 def tampilkan_filter_labelqc():
     # st.title("Filter Data CPP Bahan")
