@@ -414,11 +414,6 @@ def kuantiti():
             st.dataframe(df_cleaned)
             # # Tampilkan informasi pembersihan
             # st.info(f"📊 Jumlah baris setelah pembersihan: {len(df_cleaned)}")
-           
-            # # === PREVIEW KUANTITI PER BAHAN DAN LABEL QC ===
-            # st.subheader("📊 Rekap Kuantiti per Bahan dan Label QC")
-            # df_summary = hitung_total_kuantiti(df_cleaned)
-            # st.dataframe(df_summary)
 
             # === PERBAIKAN FUNGSI EXPORT EXCEL ===
             def to_excel_download(df):
@@ -541,73 +536,6 @@ def kuantiti():
             st.error(f"Error type: {type(e)}")
             import traceback
             st.error(f"Traceback: {traceback.format_exc()}")
-
-# def hitung_total_kuantiti(df: pd.DataFrame) -> pd.DataFrame:
-#     df = df.copy()
-#     hasil = []
-
-#     # Cari blok bahan berdasar suffix
-#     suffixes = []
-#     for i in range(100):
-#         sfx = "" if i == 0 else f".{i}"
-#         if f"Nama Bahan Formula{sfx}" in df.columns:
-#             suffixes.append(sfx)
-#         else:
-#             break
-
-#     for batch_val, df_batch in df.groupby("Nomor Batch", dropna=False):
-#         df_merged = pd.DataFrame()
-
-#         for sfx in suffixes:
-#             kolom = {
-#                 "nama": f"Nama Bahan Formula{sfx}",
-#                 "kode": f"Kode Bahan{sfx}",
-#                 "qt": f"Kuantiti > Terpakai{sfx}",
-#                 "rs": f"Kuantiti > Rusak{sfx}",
-#                 "label": f"Label QC{sfx}"
-#             }
-
-#             if not all(k in df_batch.columns for k in kolom.values()):
-#                 continue
-
-#             d = df_batch[[kolom["nama"], kolom["kode"], kolom["qt"], kolom["rs"], kolom["label"]]].copy()
-#             d.columns = ["nama", "kode", "qt", "rusak", "label"]
-#             d["qt_val"] = d["qt"].astype(str).str.replace("GRAM", "", case=False).str.replace(".", "").str.replace(",", ".").str.extract(r'([\d.]+)').astype(float).fillna(0)
-#             d["rs_val"] = d["rusak"].astype(str).str.replace("GRAM", "", case=False).str.replace(".", "").str.replace(",", ".").str.extract(r'([\d.]+)').astype(float).fillna(0)
-#             d["suffix"] = sfx
-
-#             # Hitung per Label
-#             d_grouped = []
-#             for label_val, g in d.groupby("label"):
-#                 g = g.copy()
-#                 g["Total Kuantiti Terpakai"] = ""
-#                 g["Total Kuantiti Rusak"] = ""
-
-#                 total_qt = g["qt_val"].sum()
-#                 total_rs = g["rs_val"].sum()
-#                 if not g.empty:
-#                     g.loc[g.index[-1], "Total Kuantiti Terpakai"] = f"{int(total_qt):,}".replace(",", ".") + " GRAM"
-#                     g.loc[g.index[-1], "Total Kuantiti Rusak"] = f"{int(total_rs):,}".replace(",", ".") + " GRAM"
-
-#                 d_grouped.append(g)
-
-#             d_final = pd.concat(d_grouped, ignore_index=True)
-
-#             # Rename kolom dengan suffix
-#             d_final = d_final[["label", "nama", "kode", "qt", "rusak", "Total Kuantiti Terpakai", "Total Kuantiti Rusak"]]
-#             d_final.columns = [f"{c}{sfx}" if c != "label" else "Label QC" for c in d_final.columns]
-
-#             if df_merged.empty:
-#                 df_merged = d_final
-#             else:
-#                 df_merged = pd.merge(df_merged, d_final, on="Label QC", how="outer")
-
-#         # Tambah kolom Batch di awal
-#         df_merged.insert(0, "Nomor Batch", batch_val)
-#         hasil.append(df_merged)
-
-#     df_out = pd.concat(hasil, ignore_index=True).fillna("")
-#     return df_out
 
 def tampilkan_filter_labelqc():
     # st.title("Filter Data CPP Bahan")
