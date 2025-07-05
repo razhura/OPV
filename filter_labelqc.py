@@ -296,7 +296,7 @@ def filter_labelqc():
         except Exception as e:
             st.error(f"❌ Terjadi kesalahan saat membaca file: {e}")
 
-# KUANTITI
+# === KUANTITI ===
 def rapikan(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     batch_indices = df[df["Nomor Batch"].notna()].index.tolist()
@@ -326,8 +326,7 @@ def rapikan(df: pd.DataFrame) -> pd.DataFrame:
 
     df_bersih = pd.concat(hasil, ignore_index=True)
 
-    # === PEMBERSIHAN BARIS KOSONG YANG LEBIH EFEKTIF ===
-    
+    # Pembersihan baris kosong
     # 1. Ganti string kosong dan whitespace dengan NaN (gunakan np.nan bukan pd.NA)
     df_bersih = df_bersih.replace(r'^\s*$', np.nan, regex=True)
     df_bersih = df_bersih.replace('', np.nan)
@@ -357,173 +356,6 @@ def rapikan(df: pd.DataFrame) -> pd.DataFrame:
     df_final = df_final.fillna(np.nan)
     
     return df_final
-
-def hitung_total_kuantiti(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    hasil = []
-
-    # Identifikasi semua kolom bahan berdasarkan awalan
-    bahan_blocks = []
-    for i in range(100):
-        suffix = "" if i == 0 else f".{i}"
-        nama = f"Nama Bahan Formula{suffix}"
-        kode = f"Kode Bahan{suffix}"
-        qt_pakai = f"Kuantiti > Terpakai{suffix}"
-        qt_rusak = f"Kuantiti > Rusak{suffix}"
-        label = f"Label QC{suffix}"
-        if all(col in df.columns for col in [nama, kode, qt_pakai, qt_rusak, label]):
-            bahan_blocks.append({
-                "suffix": suffix,
-                "nama": nama,
-                "kode": kode,
-                "qt_pakai": qt_pakai,
-                "qt_rusak": qt_rusak,
-                "label": label
-            })
-        else:
-            break
-
-    # Loop per batch
-    for batch, group in df.groupby("Nomor Batch", dropna=False):
-        for blok in bahan_blocks:
-            nama_col, kode_col = blok["nama"], blok["kode"]
-            qt_col, rusak_col, label_col = blok["qt_pakai"], blok["qt_rusak"], blok["label"]
-
-            data = group[[nama_col, kode_col, qt_col, rusak_col, label_col]].copy()
-            data.columns = ["nama", "kode", "qt", "rusak", "label"]
-            data = data.dropna(subset=["nama", "label", "qt", "rusak"], how="all")
-
-            # Bersihkan dan ubah tipe
-            data["qt"] = pd.to_numeric(data["qt"], errors="coerce").fillna(0)
-            data["rusak"] = pd.to_numeric(data["rusak"], errors="coerce").fillna(0)
-            data["label"] = data["label"].astype(str).str.strip()
-            data["nama bahan"] = data["nama"]
-            data["kode bahan"] = data["kode"]
-            data["batch"] = batch
-            data["total kuantiti t"] = ""
-            data["total kuantiti rusak"] = ""
-
-            if not data.empty:
-                # Hitung total per label
-                for label_val, df_label in data.groupby("label"):
-                    total_qt = df_label["qt"].sum()
-                    total_rs = df_label["rusak"].sum()
-                    last_idx = df_label.index[-1]
-                    data.at[last_idx, "total kuantiti t"] = int(total_qt)
-                    data.at[last_idx, "total kuantiti rusak"] = int(total_rs)
-
-                # Hitung total semua
-                total_semua = {
-                    "batch": batch,
-                    "nama bahan": "",
-                    "kode bahan": "",
-                    "qt": "",
-                    "rusak": "",
-                    "label": "",
-                    "total kuantiti t": int(data["qt"].sum()),
-                    "total kuantiti rusak": int(data["rusak"].sum())
-                }
-                data = data.append(total_semua, ignore_index=True)
-                hasil.append(data)
-
-    # Gabung semua hasil
-    if hasil:
-        df_final = pd.concat(hasil, ignore_index=True)
-        df_final = df_final[["batch", "nama bahan", "kode bahan", "qt", "rusak", "label", "total kuantiti t", "total kuantiti rusak"]]
-        df_final.columns = [
-            "Batch", "Nama Bahan", "Kode Bahan", "Kuantiti Terpakai",
-            "Kuantiti Rusak", "Label QC", "Total Kuantiti", "Total Kuantiti Rusak"
-        ]
-        return df_final
-    else:
-        return pd.DataFrame(columns=[
-            "Batch", "Nama Bahan", "Kode Bahan", "Kuantiti Terpakai",
-            "Kuantiti Rusak", "Label QC", "Total Kuantiti", "Total Kuantiti Rusak"
-        ])
-
-def hitung_total_kuantiti(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    hasil = []
-
-    # Identifikasi semua kolom bahan berdasarkan awalan
-    bahan_blocks = []
-    for i in range(100):
-        suffix = "" if i == 0 else f".{i}"
-        nama = f"Nama Bahan Formula{suffix}"
-        kode = f"Kode Bahan{suffix}"
-        qt_pakai = f"Kuantiti > Terpakai{suffix}"
-        qt_rusak = f"Kuantiti > Rusak{suffix}"
-        label = f"Label QC{suffix}"
-        if all(col in df.columns for col in [nama, kode, qt_pakai, qt_rusak, label]):
-            bahan_blocks.append({
-                "suffix": suffix,
-                "nama": nama,
-                "kode": kode,
-                "qt_pakai": qt_pakai,
-                "qt_rusak": qt_rusak,
-                "label": label
-            })
-        else:
-            break
-
-    # Loop per batch
-    for batch, group in df.groupby("Nomor Batch", dropna=False):
-        for blok in bahan_blocks:
-            nama_col, kode_col = blok["nama"], blok["kode"]
-            qt_col, rusak_col, label_col = blok["qt_pakai"], blok["qt_rusak"], blok["label"]
-
-            data = group[[nama_col, kode_col, qt_col, rusak_col, label_col]].copy()
-            data.columns = ["nama", "kode", "qt", "rusak", "label"]
-            data = data.dropna(subset=["nama", "label", "qt", "rusak"], how="all")
-
-            # Bersihkan dan ubah tipe
-            data["qt"] = pd.to_numeric(data["qt"], errors="coerce").fillna(0)
-            data["rusak"] = pd.to_numeric(data["rusak"], errors="coerce").fillna(0)
-            data["label"] = data["label"].astype(str).str.strip()
-            data["nama bahan"] = data["nama"]
-            data["kode bahan"] = data["kode"]
-            data["batch"] = batch
-            data["total kuantiti t"] = ""
-            data["total kuantiti rusak"] = ""
-
-            if not data.empty:
-                # Hitung total per label
-                for label_val, df_label in data.groupby("label"):
-                    total_qt = df_label["qt"].sum()
-                    total_rs = df_label["rusak"].sum()
-                    last_idx = df_label.index[-1]
-                    data.at[last_idx, "total kuantiti t"] = int(total_qt)
-                    data.at[last_idx, "total kuantiti rusak"] = int(total_rs)
-
-                # Hitung total semua
-                total_semua = {
-                    "batch": batch,
-                    "nama bahan": "",
-                    "kode bahan": "",
-                    "qt": "",
-                    "rusak": "",
-                    "label": "",
-                    "total kuantiti t": int(data["qt"].sum()),
-                    "total kuantiti rusak": int(data["rusak"].sum())
-                }
-                data = pd.concat([data, pd.DataFrame([total_semua])], ignore_index=True)
-                hasil.append(data)
-
-    # Gabung semua hasil
-    if hasil:
-        df_final = pd.concat(hasil, ignore_index=True)
-        df_final = df_final[["batch", "nama bahan", "kode bahan", "qt", "rusak", "label", "total kuantiti t", "total kuantiti rusak"]]
-        df_final.columns = [
-            "Batch", "Nama Bahan", "Kode Bahan", "Kuantiti Terpakai",
-            "Kuantiti Rusak", "Label QC", "Total Kuantiti", "Total Kuantiti Rusak"
-        ]
-        return df_final
-    else:
-        return pd.DataFrame(columns=[
-            "Batch", "Nama Bahan", "Kode Bahan", "Kuantiti Terpakai",
-            "Kuantiti Rusak", "Label QC", "Total Kuantiti", "Total Kuantiti Rusak"
-        ])
-
 
 def kuantiti():
     st.subheader("Upload Data Kuantiti Bahan")
@@ -705,6 +537,101 @@ def kuantiti():
             st.error(f"Error type: {type(e)}")
             import traceback
             st.error(f"Traceback: {traceback.format_exc()}")
+
+def hitung_total_kuantiti(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    hasil = []
+
+    # Identifikasi semua kolom bahan berdasarkan awalan
+    bahan_blocks = []
+    for i in range(100):
+        suffix = "" if i == 0 else f".{i}"
+        nama = f"Nama Bahan Formula{suffix}"
+        kode = f"Kode Bahan{suffix}"
+        qt_pakai = f"Kuantiti > Terpakai{suffix}"
+        qt_rusak = f"Kuantiti > Rusak{suffix}"
+        label = f"Label QC{suffix}"
+        if all(col in df.columns for col in [nama, kode, qt_pakai, qt_rusak, label]):
+            bahan_blocks.append({
+                "suffix": suffix,
+                "nama": nama,
+                "kode": kode,
+                "qt_pakai": qt_pakai,
+                "qt_rusak": qt_rusak,
+                "label": label
+            })
+        else:
+            break
+
+    # Loop per batch
+    for batch, group in df.groupby("Nomor Batch", dropna=False):
+        for blok in bahan_blocks:
+            nama_col, kode_col = blok["nama"], blok["kode"]
+            qt_col, rusak_col, label_col = blok["qt_pakai"], blok["qt_rusak"], blok["label"]
+
+            data = group[[nama_col, kode_col, qt_col, rusak_col, label_col]].copy()
+            data.columns = ["nama", "kode", "qt", "rusak", "label"]
+            data = data.dropna(subset=["nama", "label", "qt", "rusak"], how="all")
+
+            # Bersihkan dan ubah tipe
+            data["qt"] = pd.to_numeric(data["qt"], errors="coerce").fillna(0)
+            data["rusak"] = pd.to_numeric(data["rusak"], errors="coerce").fillna(0)
+            data["label"] = data["label"].astype(str).str.strip()
+            data["nama bahan"] = data["nama"]
+            data["kode bahan"] = data["kode"]
+            data["batch"] = batch
+            data["total kuantiti t"] = ""
+            data["total kuantiti rusak"] = ""
+
+            if not data.empty:
+                # Hitung total per label
+                for label_val, df_label in data.groupby("label"):
+                    total_qt = df_label["qt"].sum()
+                    total_rs = df_label["rusak"].sum()
+                    last_idx = df_label.index[-1]
+                    data.at[last_idx, "total kuantiti t"] = int(total_qt)
+                    data.at[last_idx, "total kuantiti rusak"] = int(total_rs)
+
+                # Hitung total semua
+                total_semua = {
+                    "batch": batch,
+                    "nama bahan": "",
+                    "kode bahan": "",
+                    "qt": "",
+                    "rusak": "",
+                    "label": "",
+                    "total kuantiti t": int(data["qt"].sum()),
+                    "total kuantiti rusak": int(data["rusak"].sum())
+                }
+                data = pd.concat([data, pd.DataFrame([total_semua])], ignore_index=True)
+                hasil.append(data)
+
+    # Gabung semua hasil
+    if hasil:
+        df_final = pd.concat(hasil, ignore_index=True)
+        df_final = df_final[["batch", "nama bahan", "kode bahan", "qt", "rusak", "label", "total kuantiti t", "total kuantiti rusak"]]
+        df_final.columns = [
+            "Batch", "Nama Bahan", "Kode Bahan", "Kuantiti Terpakai",
+            "Kuantiti Rusak", "Label QC", "Total Kuantiti", "Total Kuantiti Rusak"
+        ]
+        return df_final
+    else:
+        return pd.DataFrame(columns=[
+            "Batch", "Nama Bahan", "Kode Bahan", "Kuantiti Terpakai",
+            "Kuantiti Rusak", "Label QC", "Total Kuantiti", "Total Kuantiti Rusak"
+        ])
+    st.subheader("📊 Rekap Kuantiti per Bahan dan Label QC")
+    
+    df_summary = hitung_total_kuantiti(df_cleaned)
+    st.dataframe(df_summary)
+    
+    st.download_button(
+        "📥 Download Rekap Kuantiti",
+        to_excel_download(df_summary),
+        file_name="rekap_kuantiti_per_label.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
 
 def tampilkan_filter_labelqc():
     # st.title("Filter Data CPP Bahan")
