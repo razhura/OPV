@@ -412,10 +412,22 @@ def kuantiti():
             st.success("✅ File berhasil dimuat dan dibersihkan.")
             st.subheader("Preview Data Kuantiti")
             st.dataframe(df_cleaned)
+            # # Tampilkan informasi pembersihan
+            # st.info(f"📊 Jumlah baris setelah pembersihan: {len(df_cleaned)}")
+            # === PREVIEW KUANTITI PER BAHAN DAN LABEL QC ===
+            st.subheader("📊 Rekap Kuantiti per Bahan dan Label QC")
             
-            # Tampilkan informasi pembersihan
-            st.info(f"📊 Jumlah baris setelah pembersihan: {len(df_cleaned)}")
+            df_summary = hitung_total_kuantiti(df_cleaned)
+            st.dataframe(df_summary)
             
+            # Tombol download (jika mau)
+            st.download_button(
+                label="📥 Download Rekap Kuantiti",
+                data=to_excel_download(df_summary),
+                file_name="rekap_kuantiti_per_label.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+  
             # === PERBAIKAN FUNGSI EXPORT EXCEL ===
             def to_excel_download(df):
                 from openpyxl import Workbook
