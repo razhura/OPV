@@ -542,7 +542,7 @@ def kuantiti():
             import traceback
             st.error(f"Traceback: {traceback.format_exc()}")
 
-def hitung_total_kuantiti(df: pd.DataFrame) -> pd.DataFrame:
+# def hitung_total_kuantiti(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     hasil = []
 
