@@ -551,7 +551,7 @@ def tampilkan_filter_labelqc():
     if selected_option == "Filter Label QC":
         filter_labelqc()
     elif selected_option == "Kuantiti":
-        st.info("🔧 Fitur 'Kuantiti' masih dalam pengembangan.")
+        st.info("🔧 Fitur 'Kuantiti' masih dalam tahap merapikan baris kosong.")
         kuantiti()
 
 if __name__ == "__main__":
