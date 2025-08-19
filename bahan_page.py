@@ -222,25 +222,18 @@ def create_filtered_table_by_batch(df, selected_batch):
 
 
 def create_filtered_table_by_name(df, selected_name):
-    # Temukan semua kolom "Nama Bahan Formula" di dataframe
+    
     nama_bahan_cols = [col for col in df.columns if col.startswith('Nama Bahan Formula ')]
     
-    # Dapatkan indeks yang sesuai dengan nama bahan yang dipilih
     filtered_indices = []
     for col in nama_bahan_cols:
-        # Dapatkan indeks dari nama kolom, misalnya "Nama Bahan Formula 1" → 1
         index = int(col.split()[-1])
-        
-        # Periksa setiap baris untuk nilai yang cocok dengan nama bahan yang dipilih
         mask = df[col] == selected_name
-        # Jika ada baris yang cocok, tambahkan indeks ini ke daftar
         if mask.any():
             filtered_indices.append(index)
-    
-    # Gabungkan semua dataframe terfilter untuk setiap indeks yang ditemukan
-    filtered_dfs = []
+        filtered_dfs = []
+        
     for index in filtered_indices:
-        # Kolom yang akan dipertahankan (termasuk Nama Formula jika ada)
         columns_to_keep = []
         if 'Nama Formula' in df.columns:
             columns_to_keep.append('Nama Formula')
@@ -249,7 +242,7 @@ def create_filtered_table_by_name(df, selected_name):
             'Nomor Batch', 
             'No. Order Produksi', 
             'Jalur', 
-            f'Nama Bahan Formula {index}', # Changed from 'Nama Bahan' to 'Nama Bahan Formula'
+            f'Nama Bahan Formula {index}',
             f'Kode Bahan {index}',
             f'Kuantiti > Terpakai {index}',
             f'Kuantiti > Rusak {index}',
@@ -257,34 +250,22 @@ def create_filtered_table_by_name(df, selected_name):
             f'Label QC {index}'
         ])
         
-        # Filter kolom yang ada di dataframe
         available_columns = [col for col in columns_to_keep if col in df.columns]
-        
-        # Buat dataframe baru dengan kolom yang tersedia
         temp_df = df[available_columns].copy()
-        
-        # Filter baris dimana nama bahan sesuai dengan yang dipilih
         temp_df = temp_df[temp_df[f'Nama Bahan Formula {index}'] == selected_name]
-        
-        # Ganti nama kolom untuk menghilangkan nomor indeks
         new_column_names = {}
+        
         for col in temp_df.columns:
             if col not in ['Nama Formula', 'Nomor Batch', 'No. Order Produksi', 'Jalur']:
                 new_name = re.sub(r"\s\d+$", "", col)
                 new_column_names[col] = new_name
-        
-        # Terapkan perubahan nama kolom
         temp_df = temp_df.rename(columns=new_column_names)
-        
-        # Tambahkan ke daftar dataframe terfilter
         if not temp_df.empty:
             filtered_dfs.append(temp_df)
     
-    # Gabungkan semua dataframe terfilter
     if filtered_dfs:
         return pd.concat(filtered_dfs, ignore_index=True)
     else:
-        # Kolom default untuk dataframe kosong
         default_columns = ['Nomor Batch', 'No. Order Produksi', 'Jalur', 
                           'Nama Bahan Formula', 'Kode Bahan', 'Kuantiti > Terpakai', 
                           'Kuantiti > Rusak', 'No Lot Supplier', 'Label QC']
@@ -294,7 +275,6 @@ def create_filtered_table_by_name(df, selected_name):
 
 
 def get_unique_bahan_names(df):
-    # Temukan semua kolom "Nama Bahan Formula" di dataframe
     nama_bahan_cols = [col for col in df.columns if col.startswith('Nama Bahan Formula ')]
     
     # Kumpulkan semua nilai unik dari kolom-kolom tersebut
@@ -307,67 +287,6 @@ def get_unique_bahan_names(df):
     
     # Kembalikan sebagai list yang diurutkan
     return sorted(list(unique_names))
-#############################################################
-# # Tambahkan baris total kuantiti jika bahan muncul lebih dari 1x
-# def tambahkan_baris_total_kuantiti(df):
-#     import pandas as pd
-
-#     result_rows = []
-#     current_batch = None
-#     group_buffer = {}
-
-#     nama_cols = [col for col in df.columns if col.startswith("Nama Bahan Formula")]
-#     terpakai_cols = [col for col in df.columns if col.startswith("Kuantiti > Terpakai")]
-#     rusak_cols = [col for col in df.columns if col.startswith("Kuantiti > Rusak")]
-
-#     def parse_angka(val):
-#         try:
-#             return float(str(val).split()[0].replace(".", "").replace(",", "."))
-#         except:
-#             return 0
-
-#     def simpan_total_bahan():
-#         total_rows = []
-#         for idx in nama_cols:
-#             for nama_bahan, kumpulan in group_buffer.get(idx, {}).items():
-#                 if len(kumpulan) <= 1:
-#                     continue  # hanya jumlah jika lebih dari 1 baris
-
-#                 total_terpakai = sum(parse_angka(r[terpakai_cols[nama_cols.index(idx)]]) for r in kumpulan)
-#                 total_rusak = sum(parse_angka(r[rusak_cols[nama_cols.index(idx)]]) for r in kumpulan)
-
-#                 total_row = pd.Series("", index=df.columns)
-#                 total_row[terpakai_cols[nama_cols.index(idx)]] = f"{int(total_terpakai):,}".replace(",", ".") + " GRAM"
-#                 total_row[rusak_cols[nama_cols.index(idx)]] = f"{int(total_rusak):,}".replace(",", ".") + " GRAM"
-#                 total_rows.append(total_row)
-#         return total_rows
-
-#     for i in range(len(df)):
-#         row = df.iloc[i]
-#         batch_val = row["Nomor Batch"]
-
-#         # Jika batch baru (tidak kosong dan beda dari sebelumnya)
-#         if pd.notna(batch_val) and str(batch_val).strip() != "":
-#             if current_batch is not None:
-#                 result_rows.extend(simpan_total_bahan())  # tambahkan total dari batch sebelumnya
-#                 group_buffer = {}  # reset buffer
-
-#             current_batch = batch_val  # batch baru
-
-#         # Update group_buffer
-#         for col_nama in nama_cols:
-#             nama_val = row[col_nama]
-#             if pd.isna(nama_val) or str(nama_val).strip() == "":
-#                 continue
-
-#             group_buffer.setdefault(col_nama, {}).setdefault(nama_val, []).append(row)
-
-#         result_rows.append(row)
-
-#     # Simpan total dari batch terakhir
-#     result_rows.extend(simpan_total_bahan())
-
-#     return pd.DataFrame(result_rows)
 
 
 def merge_same_materials(df):
@@ -375,16 +294,11 @@ def merge_same_materials(df):
     Memindahkan kelompok data dengan nama bahan formula yang sama ke baris baru
     Jika dalam satu baris ada nama bahan formula yang sama di kelompok berbeda,
     kelompok kedua akan dipindah ke baris baru (tanpa nomor batch, no order, jalur)
-    """
-    import pandas as pd
-    
-    # Buat list untuk menyimpan semua baris hasil
+    """ 
     result_rows = []
     
-    # Dapatkan semua kolom nama bahan formula
     nama_bahan_cols = [col for col in df.columns if col.startswith('Nama Bahan Formula ')]
     
-    # Dapatkan indeks dari nama kolom
     indices = []
     for col in nama_bahan_cols:
         try:
@@ -395,21 +309,16 @@ def merge_same_materials(df):
     
     indices.sort()
     
-    # Untuk setiap baris dalam dataframe asli
     for row_idx in df.index:
-        # Kumpulkan semua kelompok data bahan dalam baris ini
         materials_groups = []
         
         for idx in indices:
             nama_bahan_col = f'Nama Bahan Formula {idx}'
             kode_col = f'Kode Bahan {idx}'
             
-            # Periksa apakah ada data nama bahan formula
             if (nama_bahan_col in df.columns and 
                 pd.notna(df.loc[row_idx, nama_bahan_col]) and 
                 str(df.loc[row_idx, nama_bahan_col]).strip() != ''):
-                
-                # Kumpulkan semua data dalam kelompok ini
                 group_data = {
                     'original_index': idx,
                     'nama_bahan_formula': str(df.loc[row_idx, nama_bahan_col]).strip(),
@@ -423,44 +332,35 @@ def merge_same_materials(df):
                 materials_groups.append(group_data)
         
         if not materials_groups:
-            # Jika tidak ada data material, copy baris asli
             result_rows.append(df.loc[row_idx].copy())
             continue
         
-        # Identifikasi duplikasi nama bahan formula (100% sama)
         seen_names = {}
-        groups_to_keep = []  # Kelompok yang tetap di baris asli
-        groups_to_move = []  # Kelompok yang akan dipindah ke baris baru
+        groups_to_keep = []  
+        groups_to_move = [] 
         
         for group in materials_groups:
-            nama_bahan = group['nama_bahan_formula'].strip()  # Nama bahan formula exact match
+            nama_bahan = group['nama_bahan_formula'].strip()  
             if nama_bahan in seen_names:
-                # Nama bahan formula sudah ada sebelumnya, tandai untuk dipindah
                 groups_to_move.append(group)
             else:
-                # Nama bahan formula pertama kali muncul, tetap di baris asli
                 seen_names[nama_bahan] = True
                 groups_to_keep.append(group)
         
-        # Jika tidak ada duplikasi, semua tetap di baris asli
         if not groups_to_move:
             result_rows.append(df.loc[row_idx].copy())
             continue
         
-        # Buat baris asli dengan kelompok yang tidak dipindah
         current_row = df.loc[row_idx].copy()
         
-        # Kosongkan semua kolom bahan terlebih dahulu
         for idx in indices:
             for col_type in ['Nama Bahan Formula', 'Kode Bahan', 'Kuantiti > Terpakai', 'Kuantiti > Rusak', 'No Lot Supplier', 'Label QC']:
                 col_name = f'{col_type} {idx}'
                 if col_name in current_row.index:
                     current_row[col_name] = ''
         
-        # Isi kembali dengan kelompok yang tersisa, bergeser ke kiri mulai dari posisi 1
         for new_idx, group in enumerate(groups_to_keep, 1):
             if new_idx <= len(indices):
-                # Isi semua data kelompok
                 if f'Nama Bahan Formula {new_idx}' in current_row.index:
                     current_row[f'Nama Bahan Formula {new_idx}'] = group['nama_bahan_formula']
                 if f'Kode Bahan {new_idx}' in current_row.index:
@@ -476,17 +376,13 @@ def merge_same_materials(df):
         
         result_rows.append(current_row)
         
-        # Buat baris baru untuk setiap kelompok yang dipindah
         for group in groups_to_move:
-            # Buat baris kosong berdasarkan struktur dataframe asli
             new_row = pd.Series(index=df.columns, dtype=object)
             
-            # Kosongkan semua kolom (termasuk nomor batch, no order, jalur)
             for col in new_row.index:
                 new_row[col] = ''
-            
-            # Cari posisi kelompok dengan nama bahan formula yang sama di groups_to_keep
             target_position = None
+            
             for kept_group in groups_to_keep:
                 if kept_group['nama_bahan_formula'].strip() == group['nama_bahan_formula'].strip():
                     # Cari posisi kelompok ini di baris yang sudah diatur ulang
@@ -496,11 +392,9 @@ def merge_same_materials(df):
                             break
                     break
             
-            # Jika tidak ditemukan posisi yang sama, letakkan di posisi aslinya
             if target_position is None:
                 target_position = group['original_index']
             
-            # Isi data kelompok yang dipindah di posisi yang sesuai
             if f'Nama Bahan Formula {target_position}' in new_row.index:
                 new_row[f'Nama Bahan Formula {target_position}'] = group['nama_bahan_formula']
             if f'Kode Bahan {target_position}' in new_row.index:
@@ -516,14 +410,11 @@ def merge_same_materials(df):
             
             result_rows.append(new_row)
     
-    # Buat DataFrame baru dari hasil
     result_df = pd.DataFrame(result_rows)
     result_df.reset_index(drop=True, inplace=True)
     
     return result_df
 
-
-#############################################################
 def tampilkan_bahan():
     st.title("Halaman CPP BAHAN")
     st.write("Ini adalah tampilan khusus CPP BAHAN")
@@ -611,9 +502,8 @@ def tampilkan_bahan():
             if 'processed' in st.session_state and st.session_state.processed and not st.session_state.result_df.empty:
                 if st.button("🔄 Kelompokkan Bahan yang Sama"):
                     with st.spinner("Mengelompokkan data bahan yang sama..."):
-                        merged_df = merge_same_materials(st.session_state.result_df.copy()) # Bekerja dengan salinan
-                        # merged_df = tambahkan_baris_total_kuantiti(merged_df)  # ← ⬅️ Tambahkan di sini
-                        st.session_state.result_df = merged_df # Update result_df dengan hasil merge
+                        merged_df = merge_same_materials(st.session_state.result_df.copy()) 
+                        st.session_state.result_df = merged_df 
 
                         # Update unique bahan names dan batch numbers dari merged_df
                         unique_bahan_names = get_unique_bahan_names(merged_df)
@@ -830,7 +720,6 @@ def tampilkan_bahan():
 
 
 if __name__ == "__main__":
-    # Pastikan semua fungsi helper (seperti get_formula_name_from_excel jika masih ada di tempat lain, dll.)
-    # sudah didefinisikan atau diimpor sebelum memanggil tampilkan_bahan()
-    st.set_page_config(layout="wide") # Contoh konfigurasi halaman
+    st.set_page_config(layout="wide")
     tampilkan_bahan()
+
