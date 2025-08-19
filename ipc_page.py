@@ -228,11 +228,8 @@ def parse_keseragaman_bobot_effervescent_excel(file):
             st.error("File Keseragaman Bobot Effervescent kosong.")
             return None
 
-        # Ambil hanya kolom yang diperlukan: Nomor Batch dan Data 1-10
         df_needed = df.iloc[:, [0] + list(range(4, df.shape[1]))].copy()
         df_needed.columns = ['Nomor Batch'] + [f'Data{i}' for i in range(1, df_needed.shape[1])]
-
-        # Group by Nomor Batch
         grouped = df_needed.groupby('Nomor Batch')
 
         batch_dict = {}
@@ -246,24 +243,18 @@ def parse_keseragaman_bobot_effervescent_excel(file):
 
             batch_dict[batch_name] = data_values
 
-        # Membuat dataframe hasil: 1 batch = 1 kolom
         max_length = max(len(v) for v in batch_dict.values())
         result_df = pd.DataFrame()
-
-        # Tambahkan kolom "Data ke-"
         result_df["Data Ke-"] = list(range(1, max_length + 1))
         
         for batch, values in batch_dict.items():
-            # Padding jika jumlah data kurang dari batch lain
             if len(values) < max_length:
                 values.extend([np.nan] * (max_length - len(values)))
             result_df[batch] = values
 
-        # Pastikan kolom Nomor Batch tidak terbawa (safety)
         if "Nomor Batch" in result_df.columns:
             result_df = result_df.drop(columns=["Nomor Batch"])
         
-        # Tampilkan hasil di Streamlit
         st.write("Data Keseragaman Bobot Effervescent Transpose:")
         styled_df = result_df.style.format(data_cell_formatter, na_rep="")
         set_common_table_properties(styled_df)
@@ -275,7 +266,6 @@ def parse_keseragaman_bobot_effervescent_excel(file):
         st.error(f"Gagal memproses file Keseragaman Bobot Effervescent: {e}")
         st.exception(e)
         return None
-
 
 
 def parse_tebal_excel(file):
