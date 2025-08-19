@@ -114,7 +114,6 @@ def filter_labelqc():
                         for row_idx, val in enumerate(df[color_column], start=2):
                             label_str = str(val).strip().upper()
                 
-                            # Ambil angka & huruf dari label (contoh: "23A" → angka=23, huruf=A)
                             match = re.match(r"(\d+)([A-Z]?)", label_str)
                             if not match:
                                 continue
@@ -122,9 +121,7 @@ def filter_labelqc():
                             angka = int(match.group(1))
                             huruf = match.group(2)
                 
-                            # === WARNA DASAR BERDASARKAN ANGKA ===
-                            # Hue antara 190 (biru kehijauan) sampai 270 (biru keungu-unguan)
-                            hue = 190 + (angka % 10) * 8  # hasilnya 190–270
+                            hue = 190 + (angka % 10) * 8 
                             # Lightness berdasarkan huruf: A=75%, B=70%, ..., Z=45%
                             lightness = 75 - (ord(huruf) - ord("A")) * 2.5 if huruf else 75
                             lightness = max(45, min(75, lightness))  # dibatasi biar ga terlalu gelap/terang
@@ -326,12 +323,9 @@ def rapikan(df: pd.DataFrame) -> pd.DataFrame:
 
     df_bersih = pd.concat(hasil, ignore_index=True)
 
-    # Pembersihan baris kosong
-    # 1. Ganti string kosong dan whitespace dengan NaN (gunakan np.nan bukan pd.NA)
     df_bersih = df_bersih.replace(r'^\s*$', np.nan, regex=True)
     df_bersih = df_bersih.replace('', np.nan)
     
-    # 2. Fungsi untuk mengecek apakah baris memiliki data bermakna
     def has_meaningful_data(row):
         # Jika ada Nomor Batch, cek apakah ada data lain yang tidak kosong
         has_batch = pd.notna(row["Nomor Batch"]) and str(row["Nomor Batch"]).strip() not in ["", "nan", "None"]
@@ -556,4 +550,5 @@ def tampilkan_filter_labelqc():
 
 if __name__ == "__main__":
     tampilkan_filter_labelqc()
+
 
